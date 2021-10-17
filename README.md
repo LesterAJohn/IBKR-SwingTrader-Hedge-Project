@@ -8,10 +8,10 @@ The IBKR account must be a Pro account with a minimum of 35K as this strategy mo
 Please have market data for all US Market Exchanges registered.
 
 ### Reference for IBKR
-IBKR Pro Account (https://www.interactivebrokers.com/en/index.php?f=45500)
-IBKR Outside of RTH (https://www.interactivebrokers.com/en/index.php?f=47551)
-IBKR Market Data (https://www.interactivebrokers.com/en/pricing/research-news-marketdata.php)
-IBKR Paper Trading Account (https://www.interactivebrokers.com/en/software/am/am/manageaccount/papertradingaccount.htm)
+- IBKR Pro Account (https://www.interactivebrokers.com/en/index.php?f=45500)- 
+- IBKR Outside of RTH (https://www.interactivebrokers.com/en/index.php?f=47551)
+- IBKR Market Data (https://www.interactivebrokers.com/en/pricing/research-news-marketdata.php)
+- IBKR Paper Trading Account (https://www.interactivebrokers.com/en/software/am/am/manageaccount/papertradingaccount.htm)
 
 
 # NinjaTrader Strategy Module Requirement
@@ -35,6 +35,6 @@ Due to the number of calculation associated with the module, the minimum configu
 - GPU are not yet enabled as part of the NinjaTrader Platform, but will help with Chart views if you are running interactively. Recommendation is to use this component headless.
 
 ### Reference for NinjaTrader
-NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
-NinjaTrader Software (https://ninjatrader.com/BuyPlatform)
-NinJaTrader Connection Guide (https://ninjatrader.com/ConnectionGuides/Interactive-Brokers-Connection-Guide)
+- NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
+- NinjaTrader Software (https://ninjatrader.com/BuyPlatform)
+- NinJaTrader Connection Guide (https://ninjatrader.com/ConnectionGuides/Interactive-Brokers-Connection-Guide)
