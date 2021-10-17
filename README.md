@@ -14,3 +14,10 @@ Please have market data for all US Market Exchanges registered.
 IBKR Pro Account (https://www.interactivebrokers.com/en/index.php?f=45500)
 IBKR Outside of RTH (https://www.interactivebrokers.com/en/index.php?f=47551)
 IBKR Market Data (https://www.interactivebrokers.com/en/pricing/research-news-marketdata.php)
+
+
+# NinjaTrader Strategy Module
+The strategy modules is designed to be attached to 1-min chart as it is both a high fequency and swing trader modules that determines which module to use on a case by case basis. It should be in imported into NinjaTrader and then attached to the chart using the 'SL' strategy.
+
+## Back testings
+This module does not work with backtesting, but it can be tested using the IBKR Paper Trading account.
