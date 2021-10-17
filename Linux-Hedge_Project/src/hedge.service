@@ -1,0 +1,22 @@
+[Unit]
+Description = python3 hedge application
+After = network.target
+
+[Service]
+Type=simple
+
+ExecStartPre=/bin/sleep 10
+
+ExecStart = /bin/bash /opt/local/AccountHedge/src/Startup.sh
+ExecStop = /bin/bash /opt/local/AccountHedge/src/Stop.sh 
+
+Restart=always
+RestartSec=5
+TimeoutSec=60
+RuntimeMaxSec=infinity
+PIDFile=/tmp/Hedge_Project.pid
+
+KillMode = control-group
+
+[Install]
+WantedBy = multi-user.target
