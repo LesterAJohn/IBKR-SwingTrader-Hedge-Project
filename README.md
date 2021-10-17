@@ -5,7 +5,7 @@ This system includes both a NinjaTrader Chart Module Strategy that support both 
 
 
 # Required System Components
-This is a multi system deployment. It requires individual Windows and a Linux systems. They can be deployed as Virtual Machines and has been tested on VM Workstation and ESXi.
+This is a multi system deployment and it requires an individual Windows and Linux system. They can be Physical or Virtual Machines and it has been tested on VMware Workstation deployed on Linux or VMware ESXi. If a cloud environment is used it is important that the IP addresses be static.
 
 ## Windows 10 System
 This system is primarily used for NinjaTrader 8 deployment
@@ -49,6 +49,9 @@ Please see the Ninjatrader IBKR Connection guide and the recommendation is to us
 
 ## Back Testings
 This module uses other market indicators outside of individual position tick date to make buy/sell decisions and therefore NinjaTrading backtesting is not a viable option for testing this module. It is recommended to use IBKR Paper Trading account for testing. The NinjaTrader 8 simulation account is not viable as the Ask/Bid spread is not consistent with the market.
+
+## Configuration
+The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars.
 
 ### Reference for NinjaTrader
 - NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
