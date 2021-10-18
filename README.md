@@ -1,4 +1,4 @@
-# IBKR SwingTrader & Hedge Project
+# IBKR SwingTrader & Option Writer Hedge Modules
 IBKR NinjaTrader Trade Automation Module with Option Writer Hedge Module.
 
 This system includes both a NinjaTrader Strategy Module that support both high frequency and swing trading modes. When a trade does not go as planned the Option Writer component takes over to write the appropriate options against stock positions. It is designed to issues options within 2 months and watches those options to expiration. It will determine if the options should be closed via purchase, expiration or assignment. Options that are assigned are immediately managed via the NinjaTrader Module.
