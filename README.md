@@ -1,11 +1,11 @@
 # IBKR SwingTrader & Hedge Project
-IBKR NinjaTrader Trade Automation Chart Module with Option Writer Linux Hedge Module.
+IBKR NinjaTrader Trade Automation Module with Option Writer Hedge Module.
 
-This system includes both a NinjaTrader Chart Module Strategy that support both high frequency and swing trade modes. When a trade does not go as planned the Option Writer component takes over to write options against stock position that are going negative. It is designed to issues options within 2 months and watches those options to expiration. It will determine if the option should be closed via purchase, expiration or assignment. If the option is assigned the NinjaTrader module will take over management and the Option Writer will write an option against the positions if appropriate.
+This system includes both a NinjaTrader Strategy Module that support both high frequency and swing trading modes. When a trade does not go as planned the Option Writer component takes over to write the appropriate options against stock positions. It is designed to issues options within 2 months and watches those options to expiration. It will determine if the options should be closed via purchase, expiration or assignment. Options that are assigned are immediately managed via the NinjaTrader Module.
 
 
 # Required System Components
-This is a multi system deployment and it requires an individual Windows and Linux system. They can be Physical or Virtual Machines and it has been tested on VMware Workstation deployed on Linux or VMware ESXi. If a cloud environment is used it is important that the IP addresses be static.
+This is a multi system deployment that requires an individual Windows and Linux system. These systems can be Physical or Virtual Machines and it has been tested on VMware Workstation deployed on Linux or VMware ESXi. If a cloud environment is used it is important that the IP addresses be static.
 
 ## Windows 10 System
 This system is primarily used for NinjaTrader 8 deployment
@@ -60,10 +60,10 @@ The module contains a majority of the necessary defaults; howerver, to support t
 
 
 # IBKR Trader Workstation Component
-In order to support NinjaTrader and Hedge_Product components you need to run the Trader Workstation component. It is recommended to running this component on the Linux system and to configure it to deployment headless using the IBC component. In order to work with the IBC component use must use the offline version.
+In order to support the NinjaTrader Strategy Module and the Option Writer components you need to run the Trader Workstation component. It is recommended you running this component on the Linux system and configure it to be deploy headless using the IBC component.
 
 ## Configuration
-In order to use the TWS API it must be enabled and configured to allow local connections. Use the reference below to use the complete the configuration. 
+Once TWS is deploy the TWS API must be enabled and configured to allow local connections. Use the reference below to use the complete the configuration. 
 
 ### Reference for Trader Workstation
 - IBKR Trader Workstation version (https://www.interactivebrokers.com/en/index.php?f=16045)
@@ -80,4 +80,4 @@ The deployment script "hedgeInstallation.sh" should be executed with root permis
 
 The environment configuration file is located in '/opt/local/env/Emv.conf' and prior to start the Account # should be updated. 
 
-To start the system manually you can use 'systemctl start/stop hedge' service.
+To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script.
