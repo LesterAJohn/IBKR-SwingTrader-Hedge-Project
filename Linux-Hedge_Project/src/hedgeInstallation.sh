@@ -21,10 +21,3 @@ sudo systemctl daemon-reload
 
 (crontab -l | echo "35 09 * * 1-5 /usr/bin/systemctl start hedge.service") | awk '!x[$0]++' | crontab -
 (crontab -l | echo "05 16 * * 1-5 /usr/bin/systemctl stop hedge.service") | awk '!x[$0]++' | crontab -
-
-# python / pip installation
-
-sudo apt install python3 -y 
-sudo apt install pip -y
- 
-sudo ./pipInstallScripts.sh
