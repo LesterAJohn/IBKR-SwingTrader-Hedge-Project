@@ -90,3 +90,17 @@ The deployment script "hedgeInstallation.sh" should be executed with root permis
 The environment configuration file is located in '/opt/local/env/Emv.conf' and prior to start the Account # should be updated. 
 
 To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script.
+
+# Futures Roadmap
+This is project is active and additional updates will be made on a monthly basis or as needed based on market conditions.
+
+### NinjaTrader Module
+- External Configuration Objects
+- Integration of Volumetric Metrics in Order Decisions
+
+### Option Writer
+- External Configuration Objects
+- Add RT Open Interest to Options
+- Iron Condor Module
+- Updated DB to SQL
+- Naked Option Writing Management
