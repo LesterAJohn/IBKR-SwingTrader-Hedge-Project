@@ -81,7 +81,7 @@ Once TWS is deploy the TWS API must be enabled and configured to allow local con
 - IBC (https://github.com/IbcAlpha/IBC)
 
 
-# IBKR Hedge Project Component
+# IBKR Option Writer Hedge Component
 The Option Writer component should be run on the Linux systems that is shared with TWS/IBC components. It is designed to write options against long/short position of 100 or more shares. It works in conjunction with the NinjaTrader Strategy Module to properly size and managing positions that are currently hedged.
 
 ## Installation
