@@ -95,12 +95,11 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 This is project is active and additional updates will be made on a monthly basis or as needed based on market conditions.
 
 ### NinjaTrader Module
-- External Configuration Objects
+- Increase Configuration Objects
 - Integration of Volumetric Metrics in Order Decisions
 
 ### Option Writer
-- External Configuration Objects
-- Creating of Status Application for summary
+- Increase Configuration Objects
 - Add RT Open Interest to Options
 - Iron Condor Module
 - Updated DB to SQL
