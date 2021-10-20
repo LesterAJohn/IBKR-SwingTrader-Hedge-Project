@@ -1,11 +1,11 @@
 # IBKR SwingTrader & Option Writer Hedge Modules
 IBKR NinjaTrader Trade Automation Module with Option Writer Hedge Module.
 
-This system includes both a NinjaTrader Strategy Module that support both high frequency and swing trading modes. When a trade does not go as planned the Option Writer component takes over to write the appropriate options against stock positions. It is designed to issues options within 2 months and watches those options to expiration. It will determine if the options should be closed via purchase, expiration or assignment. Options that are assigned are immediately managed via the NinjaTrader Module.
+This system includes both a NinjaTrader Strategy Module that that operates in several modes, including High Frequency, Swing, and Momentum modes. For trades that meet certain criteria that can be triggered via an Environment Setup file, the Option Writer Hedge Module takes over. It is designed to issue profitable Options that enhance the profits of the NinjaTrader Strategy Module. This is a fully automated Trading System design to operate in multiple modes in support of the different market conditions with no user intervention.
 
 
 # Required System Components
-This is a multi system deployment that requires an individual Windows and Linux system. These systems can be Physical or Virtual Machines and it has been tested on VMware Workstation deployed on Linux or VMware ESXi. If a cloud environment is used it is important that the IP addresses be static.
+This is a multi system deployment that requires separate Windows and Linux systems. These systems can be deployed on either Physical or Virtual Machines, but for performance and stablity the minimums must be adhere to.
 
 ## Windows 10 System
 This system is primarily used for NinjaTrader 8 deployment
@@ -25,11 +25,11 @@ This system is used for IBKR Trader Workstation, ibcAlpha IBC and Hedge_Project 
 - 1 Gb Internet Connection
 
 
-## IBKR Account Requirements
-The IBKR account must be a Pro account with a minimum of 35K as this strategy module is configured for Day-Trading. The recommendation is to use the tiered pricing model as it allows for tighter ask/bid spreads. The minimum number of recommended positions is 25 across several sectors. It is configured for both pre and post market trading in the US Market (4am EST to 8pm EST) and therefore the Outside of RTH should be enabled. This account should have the ability to write covered and uncovered options.
+## IBKR Account Requirements (Recommendations)
+The IBKR account should be a Pro account with a minimum of 35K as this strategy module has a High-Frequency and Momentum mode that will operate as a Day-Trader. For best results it is recommended that you configure with the the tiered pricing model as it allows for tighter ask/bid spreads and the system is designed to compute these realtime in order to get the best entry and exit pricing. The minimum number of recommended positions is 25 across several sectors. It is capable of supporting more, but that will be dependant on your available computing availablity. The minimum system requirement above are scaled to support 100 positions. The NinjaTrader Strategy Module is configured to operate in pre and post US Market (4am EST to 8pm EST) and therefore the 'Outside of RTH' should be enabled. This account should have the ability to write covered and uncovered options to take full advantage of this system.
 
 ## IBKR Market Data
-Please have market data for all US Market Exchanges registered.
+Please have market data for all US Market Exchanges registered. It is used by both modules, but separate market data can be provided only for the NinjaTrader Strategy Module as the Option Writer Hedge Module is dependent on account information from IBKR.
 
 ### Reference for IBKR
 - IBKR Pro Account (https://www.interactivebrokers.com/en/index.php?f=45500)- 
@@ -38,11 +38,11 @@ Please have market data for all US Market Exchanges registered.
 - IBKR Paper Trading Account (https://www.interactivebrokers.com/en/software/am/am/manageaccount/papertradingaccount.htm)
 
 
-# NinjaTrader Strategy Module Requirement
-This module is designed for Ninjatrader 8 and should be attached to 1-min chart as it is both a high fequency and swing trader modules that determines which module to use on a case by case basis. It should be in imported into NinjaTrader and then attached to the chart using the 'SL' strategy.
+# NinjaTrader Strategy Module Requirements
+This module is designed for Ninjatrader 8 and should be attached to 1-min chart as it operates in serveral modes and determines which mode to use on a case by case basis. The recommendation is to attach the strategy directly to various charts. It is designed to operate in a headless mode as is most strategies.
 
 ## NinjaTrader IBKR License
-The license should be either leased or purchased as live trading is only available to a fully license product for connection to IBKR.
+The license should be either leased or purchased as live trading is only available to a fully license product for connection to IBKR. When volumetric trading modes are only supported on purchased licenses.
 
 ## NinjaTrader IBKR Connection 
 Please see the Ninjatrader IBKR Connection guide and the recommendation is to use the TWS component for connection as oppose to the gateway. Unfortunately IBKR works best with the component as it provides the most stable account and market data API. For the High Fequency mode to function it needs a very stable and consist connection.
@@ -57,7 +57,7 @@ While there are several methods to enable a strategy, the recommendation is to c
 This module uses other market indicators outside of individual position tick date to make buy/sell decisions and therefore NinjaTrading backtesting is not a viable option for testing this module. It is recommended to use IBKR Paper Trading account for testing. The NinjaTrader 8 simulation account is not viable as the Ask/Bid spread is not consistent with the market.
 
 ## NinjaTrader Configuration
-The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars. In order to run NinjaTrader headless you can use Windows Scheduler. 
+The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars. To support headless operation NinjaTrader can be started via Windows Scheduler and it should be started at least 5 minutes before start of market it is trading in, either 3:50a EST for Pre Market or 9:20a EST for Market trading 
 
 ### References for NinjaTrader Component
 - NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
@@ -82,25 +82,26 @@ Once TWS is deploy the TWS API must be enabled and configured to allow local con
 
 
 # IBKR Option Writer Hedge Component
-The Option Writer component should be run on the Linux systems that is shared with TWS/IBC components. It is designed to write options against long/short position of 100 or more shares. It works in conjunction with the NinjaTrader Strategy Module to properly size and managing positions that are currently hedged.
+The Option Writer component performs best on the Linux systems that is shared with TWS/IBC components. It is designed to write options against long/short position of 100 or more shares. It works in conjunction with the NinjaTrader Strategy Module to properly size and managing positions that are currently hedged.
 
 ## Installation
 The deployment script "hedgeInstallation.sh" should be executed with root permission and it will create directories and deploy the necessary components as well as the cron start and stop jobs in the EST timezone.
 
-The environment configuration file is located in '/opt/local/env/Emv.conf' and prior to start the Account # should be updated. 
+The environment configuration file is located in '/opt/local/env/Emv.conf' and prior to start the Account # should be updated and any other defaults should be changed.  
 
-To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script.
+To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script. It is designed to be deployed to the '/opt/local/' structure.
 
 # Futures Roadmap
-This is project is active and additional updates will be made on a monthly basis or as needed based on market conditions.
+This is project is active and updates will continued. Some of the planned enhancements are listed below.
 
 ### NinjaTrader Module
-- Increase Configuration Objects
+- Increase User accessible configuration items
 - Integration of Volumetric Metrics in Order Decisions
 
 ### Option Writer
-- Increase Configuration Objects
-- Add RT Open Interest to Options
-- Iron Condor Module
-- Updated DB to SQL
-- Naked Option Writing Management
+- Increase User accessible configuration items
+- Add RealTime Open Interest Calculation to Options selection logic
+- Additional Iron Condor Module
+- Change DB to Postgresql to support parallel module executiong for larger accounts beyond 100 securities
+- Naked Option Writing outside of hedge entries
+- Improved statistics module reporting
