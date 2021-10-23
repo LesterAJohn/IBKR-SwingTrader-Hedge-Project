@@ -62,7 +62,7 @@ The module contains a majority of the necessary defaults; howerver, to support t
 NinjaTrader configuration file 'AutoTradeConfig.xml' supports tuning of the application for various modes. Please run the NTConfig.cmd to put the file in place in the 'NinjaTrade 8' document directory.
 
 ## NinjaTrader AutoTradeConfig.xml
-<liquidate> : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitablity or available for Option Writing Hedges.
+ - liquidate : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitablity or available for Option Writing Hedges.
 
 ### References for NinjaTrader Component
 - NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
