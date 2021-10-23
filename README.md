@@ -59,7 +59,7 @@ This module uses other market indicators outside of individual position tick dat
 ## NinjaTrader Configuration
 The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars. To support headless operation NinjaTrader can be started via Windows Scheduler and it should be started at least 5 minutes before start of market it is trading in, either 3:50a EST for Pre Market or 9:20a EST for Market trading
 
-NinjaTrader configuration file 'AutoTradeConfig.xml' supports tuning of the application for various modes. Please run the NTConfig.cmd to put the file in place in the 'NinjaTrade 8' document directory.
+NinjaTrader configuration file 'AutoTradeConfig.xml' supports tuning of the application for various modes. Please run the NTConfigSetup.cmd to put the file in place in the 'NinjaTrade 8' document directory.
 
 ## NinjaTrader AutoTradeConfig.xml
  - liquidate : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitablity or available for Option Writing Hedges.
