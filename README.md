@@ -57,7 +57,12 @@ While there are several methods to enable a strategy, the recommendation is to c
 This module uses other market indicators outside of individual position tick date to make buy/sell decisions and therefore NinjaTrading backtesting is not a viable option for testing this module. It is recommended to use IBKR Paper Trading account for testing. The NinjaTrader 8 simulation account is not viable as the Ask/Bid spread is not consistent with the market.
 
 ## NinjaTrader Configuration
-The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars. To support headless operation NinjaTrader can be started via Windows Scheduler and it should be started at least 5 minutes before start of market it is trading in, either 3:50a EST for Pre Market or 9:20a EST for Market trading 
+The module contains a majority of the necessary defaults; howerver, to support the embedded high frequency mode it is important the chart be set to 1-min bars. To support headless operation NinjaTrader can be started via Windows Scheduler and it should be started at least 5 minutes before start of market it is trading in, either 3:50a EST for Pre Market or 9:20a EST for Market trading
+
+NinjaTrader configuration file 'AutoTradeConfig.xml' supports tuning of the application for various modes. Please run the NTConfig.cmd to put the file in place in the 'NinjaTrade 8' document directory.
+
+## NinjaTrader AutoTradeConfig.xml
+<liquidate> : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitablity or available for Option Writing Hedges.
 
 ### References for NinjaTrader Component
 - NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
@@ -87,7 +92,7 @@ The Option Writer component performs best on the Linux systems that is shared wi
 ## Installation
 The deployment script "hedgeInstallation.sh" should be executed with root permission and it will create directories and deploy the necessary components as well as the cron start and stop jobs in the EST timezone.
 
-The environment configuration file is located in '/opt/local/env/Emv.conf' and prior to start the Account # should be updated and any other defaults should be changed.  
+The environment configuration file is located in '/opt/local/env/Env.conf' and prior to start the Account # should be updated and any other defaults should be changed.  
 
 To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script. It is designed to be deployed to the '/opt/local/' structure.
 
@@ -95,11 +100,11 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 This is project is active and updates will continued. Some of the planned enhancements are listed below.
 
 ### NinjaTrader Module
-- Increase User accessible configuration items
+- Add User accessible configuration items
 - Integration of Volumetric Metrics in Order Decisions
 
 ### Option Writer
-- Increase User accessible configuration items
+- Add User accessible configuration items
 - Add RealTime Open Interest Calculation to Options selection logic
 - Additional Iron Condor Module
 - Change DB to Postgresql to support parallel module executiong for larger accounts beyond 100 securities
