@@ -96,17 +96,18 @@ The environment configuration file is located in '/opt/local/env/Env.conf' and p
 
 To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script. It is designed to be deployed to the '/opt/local/' structure.
 
-# Futures Roadmap
-This is project is active and updates will continued. Some of the planned enhancements are listed below.
 
+# Latest Improvements
+10.28.2021
 ### NinjaTrader Module
-- Add User accessible configuration items
-- Integration of Volumetric Metrics in Order Decisions
+- XML configuration added for Liquidation Status
+- XML configuration added for Option Ready Trigger amount
+- BuySell Pressure entry order function added
+- Enhanced Hold Exit trade function to improve position profits
 
-### Option Writer
-- Add User accessible configuration items
-- Add RealTime Open Interest Calculation to Options selection logic
-- Additional Iron Condor Module
-- Change DB to Postgresql to support parallel module executiong for larger accounts beyond 100 securities
-- Naked Option Writing outside of hedge entries
-- Improved statistics module reporting
+### Option Writer Module
+- Added configuration to tune connection disconnect cycle time
+- Added file lock management to improve Database read/write speed
+- Better handling of changed option status from ‘Hedge’ to ‘Naked’
+- Continuous Profit and Loss calculations
+- Continuous Ask/Bid calculations
