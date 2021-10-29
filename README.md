@@ -111,3 +111,7 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 - Better handling of changed option status from ‘Hedge’ to ‘Naked’
 - Continuous Profit and Loss calculations
 - Continuous Ask/Bid calculations
+
+10.28.2021
+### NinjaTrader Module
+- Changed the OptionTrigger to OptionTriggerPer. The Option Trigger is now a floating value based on the overall value of account
