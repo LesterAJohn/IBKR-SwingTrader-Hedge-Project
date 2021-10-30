@@ -2,6 +2,6 @@
 <AutoTradeConfig>
   <ATSetup>
     <liquidate>false</liquidate>
-    <optionTriggerPer>10.00</optionTriggerPer>
+    <optionTriggerPer>0.10</optionTriggerPer>
   </ATSetup>
 </AutoTradeConfig>
