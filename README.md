@@ -120,3 +120,4 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 ### Option Writer Module
 - Added cofiguration item "PNLTRIGGERPER" that is used to set percentage of Net Liquidity as target start for position ready for Options. Default is set to 0.1%.
 - System will adjust entry target based on overall account value
+- Added option profit targets reporting of 90% for Hedge Positions and 50% for Naked Options to statistics download "Hedge_Stat.bin" script
