@@ -115,3 +115,8 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 10.28.2021
 ### NinjaTrader Module
 - Changed the OptionTrigger to OptionTriggerPer. The Option Trigger is now a floating value based on the overall value of account
+
+10.30.2021
+### Option Writer Module
+- Added cofiguration item "PNLTRIGGERPER" that is used to set percentage of Net Liquidity as target start for position ready for Options. Default is set to 0.1%.
+- System will adjust entry target based on overall account value
