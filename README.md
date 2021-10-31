@@ -120,4 +120,4 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 - Added option profit targets reporting of 90% for Hedge Positions and 50% for Naked Options to statistics download "Hedge_Stat.bin" script
 
 #### Option Writer Module - Date 10.31.2021
-- Multi-directional hedge capablity added to support positions change of positions from long to short during option period
+- Multi-directional hedge functionality added to support positions that change from long to short during option period
