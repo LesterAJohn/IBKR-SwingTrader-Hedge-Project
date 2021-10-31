@@ -98,26 +98,26 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 
 
 # Latest Improvements
-10.28.2021
-### NinjaTrader Module
+#### NinjaTrader Module - Date 10.27.2021
 - XML configuration added for Liquidation Status
 - XML configuration added for Option Ready Trigger amount
 - BuySell Pressure entry order function added
 - Enhanced Hold Exit trade function to improve position profits
 
-### Option Writer Module
+#### Option Writer Module - Date 10.27.2021
 - Added configuration to tune connection disconnect cycle time
 - Added file lock management to improve Database read/write speed
 - Better handling of changed option status from ‘Hedge’ to ‘Naked’
 - Continuous Profit and Loss calculations
 - Continuous Ask/Bid calculations
 
-10.28.2021
-### NinjaTrader Module
+#### NinjaTrader Module - Date 10.28.2021
 - Changed the OptionTrigger to OptionTriggerPer. The Option Trigger is now a floating value based on the overall value of account
 
-10.30.2021
-### Option Writer Module
+#### Option Writer Module - Date 10.30.2021
 - Added cofiguration item "PNLTRIGGERPER" that is used to set percentage of Net Liquidity as target start for position ready for Options. Default is set to 0.1%.
 - System will adjust entry target based on overall account value
 - Added option profit targets reporting of 90% for Hedge Positions and 50% for Naked Options to statistics download "Hedge_Stat.bin" script
+
+#### Option Writer Module - Date 10.31.2021
+- Multi-directional hedge capablity added to support positions change of positions from long to short during option period
