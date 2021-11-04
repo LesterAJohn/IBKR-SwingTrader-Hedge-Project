@@ -121,3 +121,6 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 
 #### Option Writer Module - Date 10.31.2021
 - Multi-directional hedge functionality added to support positions that change from long to short during option period
+
+#### Option Writer Module - Date 11.04.2021
+- Ask/Bid calculation based on avgCost and unRealizedPnL for options that provide no recent data Ask/Bid data
