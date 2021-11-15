@@ -124,3 +124,8 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 
 #### Option Writer Module - Date 11.04.2021
 - Ask/Bid calculation based on avgCost and unRealizedPnL for options that provide no recent data Ask/Bid data
+
+#### Option Writer Module - Date 11.14.2021
+- Improved Option DB data timeout settings to avoid mass timeouts
+- Improved Stat module order predication timing calculations
+- Added additional function threading
