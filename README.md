@@ -17,11 +17,11 @@ This system is primarily used for NinjaTrader 8 deployment
 - GPU are not yet enabled as part of the NinjaTrader Platform. Recommendation is to use this component headless.
 
 ## Linux System
-This system is used for IBKR Trader Workstation, ibcAlpha IBC and Hedge_Project Option Writer Components
+This system is used for IBKR Trader Workstation, ibcAlpha IBC, Mongodb Community Edition and Hedge_Project Option Writer Components
 - Linux version 8
 - 4 Physical or Virtula CPUs
 - 8 GB of Memory
-- SSD 40GB Harddrive
+- SSD 60GB Harddrive
 - 1 Gb Internet Connection
 
 
@@ -36,6 +36,14 @@ Please have market data for all US Market Exchanges registered. It is used by bo
 - IBKR Outside of RTH (https://www.interactivebrokers.com/en/index.php?f=47551)
 - IBKR Market Data (https://www.interactivebrokers.com/en/pricing/research-news-marketdata.php)
 - IBKR Paper Trading Account (https://www.interactivebrokers.com/en/software/am/am/manageaccount/papertradingaccount.htm)
+
+
+## Mongodb Community Edition (Recommendations)
+The Database was selected due to it search and the time series capabilities that will be leverage more extensively in future release. The current implementation of Mongodb is replicating the structure for the batch file based pydblite database without the inclusion of the pointer database that is no longer required due to more improved logic. 
+
+### Reference for Mongodb Community Edition
+- Mongodb Community Edition (https://docs.mongodb.com/v5.0/tutorial/install-mongodb-on-debian/)
+- Mongodb Docker Image (https://hub.docker.com/_/mongo)
 
 
 # NinjaTrader Strategy Module Requirements
@@ -90,11 +98,10 @@ Once TWS is deploy the TWS API must be enabled and configured to allow local con
 The Option Writer component performs best on the Linux systems that is shared with TWS/IBC components. It is designed to write options against long/short position of 100 or more shares. It works in conjunction with the NinjaTrader Strategy Module to properly size and managing positions that are currently hedged.
 
 ## Installation
-The deployment script "hedgeInstallation.sh" should be executed with root permission and it will create directories and deploy the necessary components as well as the cron start and stop jobs in the EST timezone.
-
-The environment configuration file is located in '/opt/local/env/Env.conf' and prior to start the Account # should be updated and any other defaults should be changed.  
-
-To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script. It is designed to be deployed to the '/opt/local/' structure.
+- The deployment script "hedgeInstallation.sh" should be executed with root permission and it will create directories and deploy the necessary components as well as the cron start and stop jobs in the EST timezone.
+- The environment configuration file is located in '/opt/local/env/Env.conf' and prior to start the Account # should be updated and any other defaults should be changed.  
+- The Env.conf file allow you to select the name of MongoDB database. The Database name you chose and the following collections: 'Account' / 'Options' / 'Orders' need to be created manually.
+- To start the system manually you can use 'systemctl start/stop hedge' service that is deployed by 'HedgeInstallation.sh' script. It is designed to be deployed to the '/opt/local/' structure.
 
 
 # Latest Improvements
@@ -115,7 +122,7 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 - Changed the OptionTrigger to OptionTriggerPer. The Option Trigger is now a floating value based on the overall value of account
 
 #### Option Writer Module - Date 10.30.2021
-- Added cofiguration item "PNLTRIGGERPER" that is used to set percentage of Net Liquidity as target start for position ready for Options. Default is set to 0.1%.
+- Added configuration item "PNLTRIGGERPER" that is used to set percentage of Net Liquidity as target start for position ready for Options. Default is set to 0.1%.
 - System will adjust entry target based on overall account value
 - Added option profit targets reporting of 90% for Hedge Positions and 50% for Naked Options to statistics download "Hedge_Stat.bin" script
 
@@ -127,5 +134,10 @@ To start the system manually you can use 'systemctl start/stop hedge' service th
 
 #### Option Writer Module - Date 11.14.2021
 - Improved Option DB data timeout settings to avoid mass timeouts
-- Improved Stat module order predication timing calculations
+- Improved Hedge_Stat module order predication timing calculations
 - Added additional function threading
+
+#### Option Writer Module - Date 12.05.2021
+- Finalized code for the Hedge_Batch.bin Module
+- Added a Mongo DB backend to support the Hedge_Active.bin Module in order to handle multi-threading of read and writes functions
+- Added Hedge_Active.bin (Alpha Code) module that leverages activity triggers and multiple threads 
