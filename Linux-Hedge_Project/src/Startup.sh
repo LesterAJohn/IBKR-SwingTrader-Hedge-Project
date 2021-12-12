@@ -11,6 +11,6 @@ cd /opt/local/AccountHedge/src
 # module. There will be some manual setup of the Mongodb that will be automated in
 # future releases.
 
-#/opt/local/AccountHedge/src/Hedge_Active.bin
+/opt/local/AccountHedge/src/Hedge_Active.bin
 
 #/opt/local/AccountHedge/src/Hedge_Batch.bin

@@ -70,7 +70,7 @@ The module contains a majority of the necessary defaults; howerver, to support t
 NinjaTrader configuration file 'AutoTradeConfig.xml' supports tuning of the application for various modes. Please run the NTConfigSetup.cmd to put the XML Configuration file inplace in 'C:\NinjaTraderConfig' directory.
 
 ## NinjaTrader AutoTradeConfig.xml
- - liquidate : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitablity or available for Option Writing Hedges.
+ - liquidate : This configuration set to 'false' allows the system to open new positions and when set to 'true' it will refrain from opening new positions, but will continue to process existing position as necessary to get them either to profitability or available for Option Writing Hedges.
 
 ### References for NinjaTrader Component
 - NinjaTrader Hardware Requirements (https://ninjatrader.com/NinjaTrader-8-InstallationGuide)
@@ -141,3 +141,9 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Finalized code for the Hedge_Batch.bin Module
 - Added a Mongo DB backend to support the Hedge_Active.bin Module in order to handle multi-threading of read and writes functions
 - Added Hedge_Active.bin (Alpha Code) module that leverages activity triggers and multiple threads 
+
+#### Option Writer Module - Date 12.12.2021
+- Finalized code for the Hedge_Batch.bin and Hedge_Active Modules.
+- Hedge_Batch.bin uses a file based daily database.
+- Hedge_Active.bin (Preferred) uses the Mongodb database for storage.
+- Default cycletime adjusted to 5 minutes / 300 seconds in Env.conf file
