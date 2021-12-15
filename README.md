@@ -5,25 +5,32 @@ This system includes both a NinjaTrader Strategy Module that that operates in se
 
 
 # Required System Components
-This is a multi system deployment that requires separate Windows and Linux systems. These systems can be deployed on either Physical or Virtual Machines, but for performance and stablity the minimums must be adhere to.
+This is a multi system deployment that requires separate Windows and Linux systems. These systems can be deployed on either Physical or Virtual Machines, but for performance minimums must be adhere to
 
 ## Windows 10 System
 This system is primarily used for NinjaTrader 8 deployment
 - Windows 10 (has not yet been tested with Windows 11)
 - 8 Physical or Virtual CPUs
 - 24 GB of Memory
-- SSD 100GB Harddrive
+- SSD 100GB Storage
 - 1 Gb Internet Connection
 - GPU are not yet enabled as part of the NinjaTrader Platform. Recommendation is to use this component headless.
 
-## Linux System
-This system is used for IBKR Trader Workstation, ibcAlpha IBC, Mongodb Community Edition and Hedge_Project Option Writer Components
+## Linux Application System
+This system is used for IBKR Trader Workstation, ibcAlpha IBC, and Hedge_Project Option Writer Components
 - Linux version 8
-- 4 Physical or Virtula CPUs
+- 4 Physical or Virtual CPUs
 - 8 GB of Memory
-- SSD 60GB Harddrive
+- SSD 40GB Storage
 - 1 Gb Internet Connection
 
+## Linux Database System (Can be combined with Linux Application System, but not recommended as it adds load to a system that is streaming Account and Position Information)
+This system is used for Mongodb Community Edition
+- Linux version 8
+- 2 Physical or Virtual CPUs
+- 4 GB of Memory
+- SSD 60GB Storage
+- 1 Gb Internet Connection
 
 ## IBKR Account Requirements (Recommendations)
 The IBKR account should be a Pro account with a minimum of 35K as this strategy module has a High-Frequency and Momentum mode that will operate as a Day-Trader. For best results it is recommended that you configure with the the tiered pricing model as it allows for tighter ask/bid spreads and the system is designed to compute these realtime in order to get the best entry and exit pricing. The minimum number of recommended positions is 25 across several sectors. It is capable of supporting more, but that will be dependant on your available computing availablity. The minimum system requirement above are scaled to support 100 positions. The NinjaTrader Strategy Module is configured to operate in pre and post US Market (4am EST to 8pm EST) and therefore the 'Outside of RTH' should be enabled. This account should have the ability to write covered and uncovered options to take full advantage of this system.
@@ -149,6 +156,6 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Default cycletime adjusted to 5 minutes / 300 seconds in Env.conf file
 
 #### Option Writer Module - Date 12.15.2021
-- Stream Account and Position Information
+- Streams Account, Position and Profit and Loss Information
 - Added Historical Queue Collection to Mongodb
 - Added Configuration Object to determine batch size of Ask / Bid Information
