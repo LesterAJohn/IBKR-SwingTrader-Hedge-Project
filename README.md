@@ -143,7 +143,12 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Added Hedge_Active.bin (Alpha Code) module that leverages activity triggers and multiple threads 
 
 #### Option Writer Module - Date 12.12.2021
-- Finalized code for the Hedge_Batch.bin and Hedge_Active Modules.
+- Beta Code for Hedge_Batch.bin and Hedge_Active Modules.
 - Hedge_Batch.bin uses a file based daily database.
 - Hedge_Active.bin (Preferred) uses the Mongodb database for storage.
 - Default cycletime adjusted to 5 minutes / 300 seconds in Env.conf file
+
+#### Option Writer Module - Date 12.15.2021
+- Stream Account and Position Information
+- Added Historical Queue Collection to Mongodb
+- Added Configuration Object to determine batch size of Ask / Bid Information
