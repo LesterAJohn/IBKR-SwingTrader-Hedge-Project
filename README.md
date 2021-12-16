@@ -7,11 +7,11 @@ This system includes both a NinjaTrader Strategy Module that that operates in se
 # Required System Components
 This is a multi system deployment that requires separate Windows and Linux systems. These systems can be deployed on either Physical or Virtual Machines, but for performance minimums must be adhere to
 
-## Windows 10 System
+## Windows 10 Application System
 This system is primarily used for NinjaTrader 8 deployment
 - Windows 10 (has not yet been tested with Windows 11)
 - 8 Physical or Virtual CPUs
-- 24 GB of Memory
+- 32 GB of Memory
 - SSD 100GB Storage
 - 1 Gb Internet Connection
 - GPU are not yet enabled as part of the NinjaTrader Platform. Recommendation is to use this component headless.
@@ -24,7 +24,7 @@ This system is used for IBKR Trader Workstation, ibcAlpha IBC, and Hedge_Project
 - SSD 40GB Storage
 - 1 Gb Internet Connection
 
-## Linux Database System (Can be combined with Linux Application System, but not recommended as it adds load to a system that is streaming Account and Position Information)
+## Linux Database System
 This system is used for Mongodb Community Edition
 - Linux version 8
 - 2 Physical or Virtual CPUs
@@ -159,3 +159,6 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Streams Account, Position and Profit and Loss Information
 - Added Historical Queue Collection to Mongodb
 - Added Configuration Object to determine batch size of Ask / Bid Information
+
+#### Option Writer Module - Date 12.16.2021
+- Increased threading in order to parallel reads from the IBKR Queue
