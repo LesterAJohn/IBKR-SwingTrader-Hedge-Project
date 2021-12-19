@@ -155,13 +155,6 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Hedge_Active.bin (Preferred) uses the Mongodb database for storage.
 - Default cycletime adjusted to 5 minutes / 300 seconds in Env.conf file
 
-<<<<<<< HEAD
-#### Option Writer Module - Date 12.19.2021
-- Active Module includes better IBKR Queue management
-- Improved Thread Management
-- Batch Module now uses a single connect and no longer disconnects each cycle
-- Update ENV.CONF file to support IBKR Historical Data Request Limits 
-=======
 #### Option Writer Module - Date 12.15.2021
 - Streams Account, Position and Profit and Loss Information
 - Added Historical Queue Collection to Mongodb
@@ -169,4 +162,9 @@ The Option Writer component performs best on the Linux systems that is shared wi
 
 #### Option Writer Module - Date 12.16.2021
 - Increased threading in order to parallel reads from the IBKR Queue
->>>>>>> branch 'master' of https://github.com/LesterAJohn/IBKR-SwingTrader-Hedge-Project
+
+#### Option Writer Module - Date 12.19.2021
+- Active Module includes better IBKR Queue management
+- Improved Thread Management
+- Batch Module now uses a single connect and no longer disconnects each cycle
+- Update ENV.CONF file to support IBKR Historical Data Request Limits 
