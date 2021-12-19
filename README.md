@@ -147,3 +147,9 @@ The Option Writer component performs best on the Linux systems that is shared wi
 - Hedge_Batch.bin uses a file based daily database.
 - Hedge_Active.bin (Preferred) uses the Mongodb database for storage.
 - Default cycletime adjusted to 5 minutes / 300 seconds in Env.conf file
+
+#### Option Writer Module - Date 12.19.2021
+- Active Module includes better IBKR Queue management
+- Improved Thread Management
+- Batch Module now uses a single connect and no longer disconnects each cycle
+- Update ENV.CONF file to support IBKR Historical Data Request Limits 
