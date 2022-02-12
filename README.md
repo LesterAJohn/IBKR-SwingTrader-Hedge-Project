@@ -193,15 +193,18 @@ The Option Writer component performs best on separate Linux systems. On a shared
 - Update ENV.CONF file to support IBKR Historical Data Request Limits
 
 #### Option Writer Module - Date 02.11.2022 [ Significant Changes ]
-A lot has changed as this is now supporting streaming data across several python -> TWS connections. I a will try to walk through all the changes and you will also see stub code for the python strategy using IBKR/PAXOS connection that is not yet completed.
+A lot has changed as this is now supporting streaming data across several python -> TWS connections. This is a quick summary of the changes, but now that the raw code is included realize that I have yet to optimize as well as take out stub code for future enhancement that I am developing such as the crypto module and startegy that is coming.
+
+Changes:
 - Hedge Active Stream Process designed to handled streaming data from IBKR reader queue such as Position Updates / PnL Updates / Account Profit and Exit Calculations
 - Hedge Queue Batch Process that separates in to 3 functions
 	Account - Handles Orders and Account Position Updates
 	Historical Account - Handles request for Ask/Bid data from IBKR API for Active Account Positions that are ready for Option Hedge Orders
 	Historical Option - Handles request for Ask/Bid data from IBKR API for Option Contracts
-- Configuration Scripts for Application Server
-- Configuration Scripts for Mongodb Database Server
-- System Configuration for MongoDB
-- System Startup scripts for Hedge and HedgeQ
+- New Startup Services and Scripts
+	hedge.service and hedgeq.service system scripts configure the required settings for each component in conjunction with the Startup.sh and Startup_Q.sh
+	Start_Q.sh launch multiple versions for Hedge_Queue.py with different configuration parameters based on its use.
+- System configuration Scripts for Application Server
+- System configuration Scripts for Mongodb Database Server
 
 What started out as a weekend project is now much larger, so I owe a much more detailed deployment and tuning manual for this platform.
