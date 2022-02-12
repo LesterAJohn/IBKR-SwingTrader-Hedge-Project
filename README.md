@@ -125,7 +125,7 @@ Once TWS is deploy the TWS API must be enabled and configured to allow local con
 
 
 # IBKR Option Writer Hedge Component
-The Option Writer component performs best on separate Linux systems. Due to the thread count needed to process realtime data in the Option Thread Module it will take resources form the TWS components and reduce the performance of the overall system. It is designed to write/hedge options against long/short position of 100 or more shares.
+The Option Writer component performs best on separate Linux systems. On a shared system he thread count needed to process realtime data in the Option Thread Module it will take resources form the TWS components and reduce the performance of the overall system; therefore a separate system is recommended. It is designed to write/hedge options against long/short position of 100 or more shares.
 
 ## Installation (quick)
 - The deployment script "hedgeInstallation.sh" should be executed with root permission and it will create directories and deploy the necessary components as well as the cron start and stop jobs in the EST timezone.
