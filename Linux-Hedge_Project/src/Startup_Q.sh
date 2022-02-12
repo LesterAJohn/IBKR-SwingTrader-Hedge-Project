@@ -11,6 +11,17 @@ cd /opt/local/AccountHedge/src
 # module. There will be some manual setup of the Mongodb that will be automated in
 # future releases.
 
-python3 /opt/local/AccountHedge/src/Hedge_Active.py
+for i in {1..1}
+do
+	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $i -f order &)
+done
 
-#/opt/local/AccountHedge/src/Hedge_Batch.bin
+for ii in {2..3}
+do
+	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
+done
+
+for iii in {4..6}
+do
+	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
+done
