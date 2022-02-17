@@ -112,9 +112,7 @@ class IBApp(EWrapper, EClient):
         if (abs(position) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO') or (position == 0):
             log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
             DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
-            if(pos == 0):
-                self.reqAcctPnLdisable(conId)
-            else:
+            if(pos != 0):
                 self.reqAcctPnL(conId)
 
     def positionEnd(self):
@@ -198,9 +196,7 @@ class IBApp(EWrapper, EClient):
             
     def positionMultiStage(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange):
         DBApp.resAddAcctRecord(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange)
-        if(pos == 0):
-            self.reqAcctPnLdisable(conId)
-        else:
+        if(pos != 0):
             self.reqAcctPnL(conId)
 
     def positionMultiEnd(self, reqId: int):
@@ -218,7 +214,7 @@ class IBApp(EWrapper, EClient):
                 loop_reqPnLStageAcct.daemon = True
                 loop_reqPnLStageAcct.start()
             else:
-                loop(5)
+                loop(10)
         except Exception as e:
             log.info("PnLStage Thread ERROR Captured " + str(e))
             loop(10)
@@ -228,9 +224,10 @@ class IBApp(EWrapper, EClient):
         global PnLActive
         PnLActive = True
         threadCount = threadCount + 1
-        log.info("Thread Count Account PnL Active")
+        TC = threadCount
+        log.info("Thread Count Account PnL Active: " + str(TC))
         DBApp.resPnLUpdateAcctRecord(self, reqId, UnrealizedPnL, position)
-        log.info("Thread Count Account PnL Completed")
+        log.info("Thread Count Account PnL Completed: " + str(TC))
         threadCount = threadCount - 1
     
     def reqPnLStageAcct(self, reqId, UnrealizedPnL, position):
@@ -238,7 +235,8 @@ class IBApp(EWrapper, EClient):
         global PnLActive
         PnLActive = True
         threadCount = threadCount + 1
-        log.info("Thread Count Account Active")
+        TC = threadCount
+        log.info("Thread Count Account Active: " + str(TC))
         Mongodb.reqAskBidAcctRecord(self, reqId)
         Mongodb.reqStockPriceAcctRecord(self, reqId)
         #Option Functions
@@ -246,8 +244,8 @@ class IBApp(EWrapper, EClient):
         DBLogic.logic_evaluateOption_positionSize(self, reqId)
         Mongodb.reqHedgeStatusAcctRecord(self, reqId)
         DBLogic.logicSelectOptionTargets(self, reqId)
-        Mongodb.reqContractDownloadAcctRecord(self, reqId)
-        log.info("Thread Account Completed")
+        Mongodb.reqContractDownloadAcctRecord_Loop(self, reqId)
+        log.info("Thread Account Completed: " + str(TC))
         threadCount = threadCount - 1
         
     def historicalDataUpdate(self, reqId: int, bar: BarData):
@@ -360,7 +358,6 @@ class IBApp(EWrapper, EClient):
         
         try:
             Mongodb.clearStatusAcctRecord(self, 'Account')
-            Mongodb.clearSubPnLAcctRecord(self, 'Account')
             Mongodb.clearHedgeDownloadAcctRecord(self, 'Account')
             Mongodb.clearOptionAskBidRecord(self, 'Account', {"$or":[{"secType" : "STK"},{"secType" : "OPT"}]}, {"$set": {"ask" : 0.00, "bid" : 0.00, "positionPrice" : 0.00, "AskBidActive": False}})
             Mongodb.clearOptionAskBidRecord(self, 'Option', {"secType" : "OPT"}, {"$set": {"request" : False}})
@@ -378,6 +375,12 @@ class IBApp(EWrapper, EClient):
             loop_option.start()
         except Exception as e:
             log.info("option general load ERROR Captured " + str(e))
+
+        try:
+            loop_positionPnLUpdate = threading.Thread(target=self.positionPnLUpdate_Loop)
+            loop_positionPnLUpdate.start()
+        except Exception as e:
+            log.info("positionPnLUpdate ERROR Capture " + str(e))
 
         try:
             loop_checkConnection = threading.Thread(target=self.connectStatus_Loop)
@@ -406,18 +409,17 @@ class IBApp(EWrapper, EClient):
                 DBLogic.logic_evaluateOption_positionSize(self, None)
                 Mongodb.reqHedgeStatusAcctRecord(self, None)
                 DBLogic.logicSelectOptionTargets(self, None)
-                Mongodb.reqContractDownloadAcctRecord(self, None)
+                Mongodb.reqContractDownloadAcctRecord_Loop(self, None)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
-                #PnL Subscription Check During Batch Functions
-                DBApp.reqSubReset(self)
             loop(1)
                         
-    def positionUpdate_Loop(self):
+    def positionPnLUpdate_Loop(self):
         nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
-                log.info("Update positions Loop")
-                self.acct_Position()
+                log.info("Update PnL Loop")
+                #self.acct_Position()
+                DBApp.reqSubReset(self)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
@@ -435,7 +437,7 @@ class IBApp(EWrapper, EClient):
             loop(1)
     
     def reqAcctPnL(self, conId):
-        log.info("Request Positions PnL")
+        log.info("Request Positions PnL: " + str(conId))
         Mongodb.reqPnLAcctRecord(self, conId)
         
     def reqAcctPnLdisable(self, conId):
@@ -500,16 +502,9 @@ class Mongodb(IBApp):
     def clearStatusAcctRecord(self, collection):
         activeCol = self.db[collection]
         query = {"status" : True}
-        update_data = {"$set": {"status" : False}}
+        update_data = {"$set": {"position" : 0, "status" : False, "subPnL" : False, "subPnLRequest" : False}}
         activeCol.update_many(query, update_data)
         log.info("Status Flag Cleared")
-    
-    def clearSubPnLAcctRecord(self, collection):
-        activeCol = self.db[collection]
-        query = {"subPnL" : True}
-        update_data = {"$set": {"subPnL" : False}}
-        activeCol.update_many(query, update_data)
-        log.info("Sub PnL Flag Cleared")
     
     def clearHedgeDownloadAcctRecord(self, collection):
         activeCol = self.db[collection]
@@ -562,19 +557,21 @@ class Mongodb(IBApp):
             
     def reqPnLAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : False, "status" : True,  "conId" : conId}
+        query = {"subPnL" : False, "subPnLRequest" : False, "status" : True,  "conId" : conId}
         for r in activeCol.find(query):
             log.info("Subscribe to PnL for position: " + r.get('symbol'))
             reqId = r.get('realTimeNum')
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : True}})
             IBApp.getAcctPnL(self, reqId, conId)
             
     def reqPnlsubDisableAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : True, "status" : False, "conId" : conId}
+        query = {"subPnL" : True, "subPnLRequest" : True, "status" : False, "conId" : conId}
         for r in activeCol.find(query):
             log.info("unSubscribe PnL for Position: " + r.get('symbol'))
-            reqId = r.get('realTimeNum')
-            IBApp.sub_stop(self, reqId)  
+            reqId = r.get('realTimeNum') 
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : False}})
+            IBApp.sub_stop(self, reqId) 
             
     def reqAskBidAcctRecord(self, reqId):
         activeCol = self.db['Account']
@@ -777,7 +774,7 @@ class Mongodb(IBApp):
 
     def reqHedgeStatusAcctRecord(self, reqId):
         activeCol = self.db['Account']
-        query_Acct_Status = {"status":True, "positionPrice":{"$eq":0}}
+        query_Acct_Status = {"$or":[{"status":True, "positionPrice":{"$eq":0}},{"status":True, "subPnL":False}]}
         if(activeCol.count_documents(query_Acct_Status) != 0):
              DBApp.reqSubReset(self)
         else:
@@ -819,6 +816,20 @@ class Mongodb(IBApp):
             data3 = {"hedge" : False, "optionDownload" : False, "optionDownloadActive" : False}
             update_data3 = {"$set": {"hedge" : data3['hedge'], "optionDownload" : data3['optionDownload'], "optionDownloadActive" : data3['optionDownloadActive']}}
             activeCol.update_one(query3, update_data3)
+    
+    def reqContractDownloadAcctRecord_Loop(self, reqId):
+        activeCol = self.db['Account']
+        if(reqId == None):
+            query = {"status" : True, "hedge" : True, "secType" : "STK", "optionDownload" : False, "optionDownloadActive" : False, "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
+        else:
+            query = {"status" : True, "realTimeNum": reqId, "hedge" : True, "secType" : "STK", "optionDownload" : False, "optionDownloadActive" : False, "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
+        
+        if (activeCol.count_documents(query) != 0):
+            try:
+                loop_reqContractDownloadAcctRecord = threading.Thread(target=Mongodb.reqContractDownloadAcctRecord(self, reqId))
+                loop_reqContractDownloadAcctRecord.start()
+            except Exception as e:
+                log.info("reqContractDownloadAcctRecord ERROR Captured " + str(e))
     
     def reqContractDownloadAcctRecord(self, reqId):
         activeCol = self.db['Account']
@@ -917,7 +928,7 @@ class DBApp(IBApp):
         query = { 'conId' : conId }
         data = { 'account' : account, 'symbol' : symbol, 'conId' : conId, 'secType' : secType, 'currency' : currency, 'exchange' : exchange,
                 'position' : position, 'avgCost' : avgCost, 'expDate' : expDate_obj, 'right' : right, 'strike' : strike, 
-                'ask' : 0.00, 'bid' : 0.00, 'positionPrice' : 0.00, 'stockPrice' : 0.00, 'priceDate' : priceDate_str, 'subPnL' : False, 
+                'ask' : 0.00, 'bid' : 0.00, 'positionPrice' : 0.00, 'stockPrice' : 0.00, 'priceDate' : priceDate_str, 'subPnL' : False, 'subPnLRequest' : False, 
                 'hedge' : False, 'optionDownload' : False, 'optionDownloadActive' : False, 'AskBidActive' : False,
                 'recDate' : TDate_str, 'realTimeNum' : RTNum, 'status' : True }
         if(position != 0):
@@ -959,22 +970,32 @@ class DBApp(IBApp):
     def reqSubReset(self):
         db = Mongodb()
         activeCol = self.db['Account']
-        
-        query_positionSub = {"subPnL": False, "$or":[{"position": {"$ne": 0}, "secType":"STK"}, {"position":{"$ne": 0}, "secType":"OPT"}, {"position":{"$ne": 0}, "secType":"CRYPTO"}]}
+        ActiveSubProcess = False
+
+        query_positionSub = {"subPnL" : False, "subPnLRequest" : False, "position":{"$ne":0}}
         for r in activeCol.find(query_positionSub):
+            ActiveSubProcess = True
             log.info("Add Subscription for PnL Contract: " + str(r.get('conId')))
             conId = r.get('conId')
             query_positionSub1 = {'conId':conId}
             activeCol.update_one(query_positionSub1, {"$set": {"status":True}})
             IBApp.reqAcctPnL(self, conId)
             
-        query_positionDeSub = {"position":{"$eq":0}, "subPnL":True}
+        query_positionDeSub = {"subPnL" : True, "subPnLRequest" : True, "position":{"$eq":0}}
         for r in activeCol.find(query_positionDeSub):
+            ActiveSubProcess = True
             log.info("Remove Subscription for PnL Contract: " + str(r.get('conId')))
             conId = r.get('conId')
             query_positionDeSub1 = {'conId':conId}
             activeCol.update_one(query_positionDeSub1, {"$set": {"status":False}})
             IBApp.reqAcctPnLdisable(self, conId)
+        
+        if (ActiveSubProcess == False):
+            loop(15)
+            query_subPnL = {"$or": [{ "status": True, "positionPrice" : { "$eq": 0 }},{"status" : True, "subPnL" : False}]}
+            query_subPnLRequest = {"status" : True, "subPnL" : False,"subPnLRequest" : True}
+            if (activeCol.count_documents(query_subPnL) == activeCol.count_documents(query_subPnLRequest)):
+                activeCol.update_many(query_subPnLRequest,{"$set":{"subPnLRequest" : False}})
 
 class DBAppOption(IBApp):
     def reqOptionsInfo(self, symbol, currency,realTimeNum):

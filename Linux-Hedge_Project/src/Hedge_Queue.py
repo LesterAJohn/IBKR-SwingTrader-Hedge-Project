@@ -481,18 +481,20 @@ class Mongodb(IBApp):
             
     def reqPnLAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : False, "status" : True,  "conId" : conId}
+        query = {"subPnL" : False, "subPnLRequest" : False, "status" : True,  "conId" : conId}
         for r in activeCol.find(query):
             log.info("Subscribe to PnL for position: " + r.get('symbol'))
             reqId = r.get('realTimeNum')
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : True}})
             IBApp.getAcctPnL(self, reqId, conId)
             
     def reqPnlsubDisableAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : True, "status" : False, "conId" : conId}
+        query = {"subPnL" : True, "subPnLRequest" : True, "status" : False, "conId" : conId}
         for r in activeCol.find(query):
             log.info("unSubscribe PnL for Position: " + r.get('symbol'))
             reqId = r.get('realTimeNum')
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : False}})
             IBApp.sub_stop(self, reqId)  
             
     def reqStockPriceAcctRecord(self, reqId):
@@ -530,7 +532,7 @@ class DBApp(IBApp):
         query = { 'conId' : conId }
         data = { 'account' : account, 'symbol' : symbol, 'conId' : conId, 'secType' : secType, 'currency' : currency, 'exchange' : exchange,
                 'position' : position, 'avgCost' : avgCost, 'expDate' : expDate_obj, 'right' : right, 'strike' : strike, 
-                'ask' : 0.00, 'bid' : 0.00, 'positionPrice' : 0.00, 'stockPrice' : 0.00, 'priceDate' : priceDate_str, 'subPnL' : False, 
+                'ask' : 0.00, 'bid' : 0.00, 'positionPrice' : 0.00, 'stockPrice' : 0.00, 'priceDate' : priceDate_str, 'subPnL' : False, 'subPnLRequest' : False,
                 'hedge' : False, 'optionDownload' : False, 'optionDownloadActive' : False, 'AskBidActive' : False,
                 'recDate' : TDate_str, 'realTimeNum' : RTNum, 'status' : True }
         if(position != 0):
