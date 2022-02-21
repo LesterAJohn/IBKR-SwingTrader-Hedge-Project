@@ -189,14 +189,19 @@ class IBApp(EWrapper, EClient):
         global netLiq
         global buyPower
         log.info("Account Info: " +  account + " : " + tags + " : " + value)
+        if(tags == "NetLiquidationByCurrency"):
+            log.info("For NetLiquidity Calculation: " +  account + " : " + tags + " : " + value)
+            netLiq = float(value)
+            targetPnLTrigger = -(netLiq * (targetPnLTriggerPer/100))
+            log.info("targetPnLTrigger adjusted: " + str(targetPnLTrigger))
         if(tags == "BuyingPower"):
             log.info("Updated BuyPower Value: " +  account + " : " + tags + " : " + value)
             buyPower = float(value)
             if (buyPower > 1000):
                 self.reqOpenOrders()
-                loop(5)
+                loop(2)
                 DBOrder.reqOptionOrderEval(self)
-                loop(5)
+                loop(2)
                 DBOrder.reqOptionOrderCreate(self)
             
     def accountSummaryEnd(self, reqId:int):
@@ -339,8 +344,9 @@ class IBApp(EWrapper, EClient):
 
         try:
             if (QFunction == "order"):
-                self.reqAccountSummary(100001, "All", "BuyingPower")
-                self.reqPositionsMulti(100002, localHostAccount, "")
+                self.reqAccountSummary(100001, "All", "$LEDGER")
+                self.reqAccountSummary(100002, "All", "BuyingPower")
+                #self.reqPositionsMulti(100005, localHostAccount, "")
         except Exception as e:
             log.info("Account Subscription " + str(e))
 
@@ -377,11 +383,11 @@ class IBApp(EWrapper, EClient):
             if (datetime.datetime.now() > nextX):
                 log.info("Order Management Loop")
                 self.reqOpenOrders()
-                loop(5)
+                loop(2)
                 DBOrder.reqOptionOrderEval(self)
-                loop(5)
+                loop(2)
                 DBOrder.reqOptionOrderCreate(self)
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=180)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
     def optionCancel_Loop(self):
@@ -390,18 +396,18 @@ class IBApp(EWrapper, EClient):
             if (datetime.datetime.now() > nextX):
                 log.info("Option Order Cancel Loop")
                 DBOrder.req_optionOrder_activeCancel(self)
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=300)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
                    
     def connectStatus_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=180)
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
         global runActive
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
                 if (self.isConnected() == False):
                     runActive = False
                 log.info("Checking the status of the API Connection: " + str(runActive))
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=180)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
     def historical_Loop(self):

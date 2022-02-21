@@ -23,6 +23,7 @@ import threading
 import numpy as np
 import logging
 import sys
+import getopt
 import configparser
 import pymongo
 
@@ -65,10 +66,12 @@ buyPower = 0
 runActive = True
 activeHisCount = 0
 threadCount = 0
+ConCount = ""
+ActiveFunction = ""
 reqID_lock_Contracts = []
 reqID_lock_AskBidOption = []
-PnLActive = False
 nextCryptoOrder = datetime.datetime.now()
+PnLActive = False
 
 SecStartTime = int(datetime.time(9,30,0).strftime("%H%M%S"))
 SecEndTime = int(datetime.time(16,0,0).strftime("%H%M%S"))
@@ -116,6 +119,7 @@ class IBApp(EWrapper, EClient):
                 self.reqAcctPnL(conId)
 
     def positionEnd(self):
+        self.cancelPositions()
         log.info("Position Download End")
         
     def contractDetails(self, reqId, contractDetails):
@@ -185,11 +189,12 @@ class IBApp(EWrapper, EClient):
 # IBAPI Response Subscription
     def positionMulti(self, reqId: int, account: str, modelCode: str, contract: Contract, pos: int, avgCost: float):
         super().positionMulti(reqId, account, modelCode, contract, pos, avgCost)
-        if (abs(pos) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO') or (pos == 0):
+        if (abs(pos) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO'):
             log.info("PositionMulti. RequestId: " + str(reqId) + " Account: " + account + " ModelCode: " + modelCode + " Symbol: " + contract.symbol + " SecType: " + contract.secType + " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(pos) + " AvgCost: " + str(avgCost))
             try:
                 loop_positionMultiStage = threading.Thread(target=self.positionMultiStage, args=(account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, pos, avgCost, contract.right, contract.strike, contract.primaryExchange))
                 loop_positionMultiStage.daemon = True
+                loop(1)
                 loop_positionMultiStage.start()
             except Exception as e:
                 log.info("Position Thread ERROR Captured " + str(e))
@@ -205,14 +210,14 @@ class IBApp(EWrapper, EClient):
 
     def pnlSingle(self, reqId:int, pos:int, dailyPnL:float, UnrealizedPnL:float, realizedPnL:float, value:float):
         log.info("Daily PnL Single Subscription. ReqId: " + str(reqId) + " Position: " + str(pos) + " DailyPnL: " + str(dailyPnL) + " UnrealizedPnL: " + str(UnrealizedPnL) +  " RealizedPnL: " + str(realizedPnL) + " Value: " + str(value))
+        global PnLActive
+        PnLActive = True
         try:
             if (threadCount < threadThrottle):
-                loop_reqPnLStageAcctPnL = threading.Thread(target=self.reqPnLStageAcctPnL, args=(reqId, UnrealizedPnL, pos))
-                loop_reqPnLStageAcctPnL.daemon = True
-                loop_reqPnLStageAcctPnL.start()
-                loop_reqPnLStageAcct = threading.Thread(target=self.reqPnLStageAcct, args=(reqId, UnrealizedPnL, pos))
-                loop_reqPnLStageAcct.daemon = True
-                loop_reqPnLStageAcct.start()
+                if (ActiveFunction == "pnl"):
+                    loop_reqPnLStageAcctPnL = threading.Thread(target=self.reqPnLStageAcctPnL, args=(reqId, UnrealizedPnL, pos))
+                    loop_reqPnLStageAcctPnL.daemon = True
+                    loop_reqPnLStageAcctPnL.start()
             else:
                 loop(10)
         except Exception as e:
@@ -221,31 +226,39 @@ class IBApp(EWrapper, EClient):
         
     def reqPnLStageAcctPnL(self, reqId, UnrealizedPnL, position):
         global threadCount
-        global PnLActive
-        PnLActive = True
         threadCount = threadCount + 1
         TC = threadCount
         log.info("Thread Count Account PnL Active: " + str(TC))
         DBApp.resPnLUpdateAcctRecord(self, reqId, UnrealizedPnL, position)
+        Mongodb.reqAskBidAcctRecord(self, reqId)
+        Mongodb.reqStockPriceAcctRecord(self, reqId)
         log.info("Thread Count Account PnL Completed: " + str(TC))
         threadCount = threadCount - 1
     
-    def reqPnLStageAcct(self, reqId, UnrealizedPnL, position):
+    def reqOptionSTKEval(self, reqId):
         global threadCount
-        global PnLActive
-        PnLActive = True
         threadCount = threadCount + 1
         TC = threadCount
-        log.info("Thread Count Account Active: " + str(TC))
-        Mongodb.reqAskBidAcctRecord(self, reqId)
-        Mongodb.reqStockPriceAcctRecord(self, reqId)
-        #Option Functions
-        Mongodb.reqOptionCloseAcctRecord(self, reqId)
-        DBLogic.logic_evaluateOption_positionSize(self, reqId)
+        log.info("Thread Count Option Stock Active: " + str(TC))
+        #Mongodb.reqOptionCloseAcctRecord(self, reqId)
+        #DBLogic.logic_evaluateOption_positionSize(self, reqId)
         Mongodb.reqHedgeStatusAcctRecord(self, reqId)
         DBLogic.logicSelectOptionTargets(self, reqId)
         Mongodb.reqContractDownloadAcctRecord_Loop(self, reqId)
-        log.info("Thread Account Completed: " + str(TC))
+        log.info("Thread Count Option Stock Completed: " + str(TC))
+        threadCount = threadCount - 1
+        
+    def reqOptionEval(self, reqId):
+        global threadCount
+        threadCount = threadCount + 1
+        TC = threadCount
+        log.info("Thread Count Option Active: " + str(TC))
+        Mongodb.reqOptionCloseAcctRecord(self, reqId)
+        DBLogic.logic_evaluateOption_positionSize(self, reqId)
+        #Mongodb.reqHedgeStatusAcctRecord(self, reqId)
+        #DBLogic.logicSelectOptionTargets(self, reqId)
+        #Mongodb.reqContractDownloadAcctRecord_Loop(self, reqId)
+        log.info("Thread Count Option Completed: " + str(TC))
         threadCount = threadCount - 1
         
     def historicalDataUpdate(self, reqId: int, bar: BarData):
@@ -257,13 +270,12 @@ class IBApp(EWrapper, EClient):
         global buyPower
         log.info("Account Calculation: " +  account + " : " + tags + " : " + value)
         if(tags == "NetLiquidationByCurrency"):
-            #log.info("For NetLiquidity Calculation: " +  account + " : " + tags + " : " + value)
+            log.info("For NetLiquidity Calculation: " +  account + " : " + tags + " : " + value)
             netLiq = float(value)
             targetPnLTrigger = -(netLiq * (targetPnLTriggerPer/100))
             log.info("targetPnLTrigger adjusted: " + str(targetPnLTrigger))
-            #log.info("Account Summary Information Received")
         if(tags == "BuyingPower"):
-            #log.info("Updated BuyPower Value: " +  account + " : " + tags + " : " + value)
+            log.info("Updated BuyPower Value: " +  account + " : " + tags + " : " + value)
             buyPower = float(value)
             
     def accountSummaryEnd(self, reqId:int):
@@ -303,7 +315,7 @@ class IBApp(EWrapper, EClient):
         self.reqPnLSingle(reqId, localHostAccount, "", conId)
             
     def acct_Position(self):
-        log.info("Get Account Positions")
+        log.info("Get Account Positions Update")
         self.reqPositions()
         
     def getContractDetails_optionPrice(self, symbol, secType, currency, monthExp, realTimeNum):
@@ -357,59 +369,70 @@ class IBApp(EWrapper, EClient):
         log.info ("Global Sequence Count: " + str(seqCount))
         
         try:
-            Mongodb.clearStatusAcctRecord(self, 'Account')
-            Mongodb.clearHedgeDownloadAcctRecord(self, 'Account')
-            Mongodb.clearOptionAskBidRecord(self, 'Account', {"$or":[{"secType" : "STK"},{"secType" : "OPT"}]}, {"$set": {"ask" : 0.00, "bid" : 0.00, "positionPrice" : 0.00, "AskBidActive": False}})
-            Mongodb.clearOptionAskBidRecord(self, 'Option', {"secType" : "OPT"}, {"$set": {"request" : False}})
-            Mongodb.clearExpiredContractsAcctRecord(self, 'Account')
-            Mongodb.clearExpiredContractsOptionRecord(self, 'Account','Option')
-            #Mongodb.updateDocumentField(self, 'Account', {}, {"exchange" : ""}, {"exchange" : ""})
-            processQueue.clearProcessQueue(self)
+            if (ActiveFunction == "pnl"):
+                Mongodb.clearStatusAcctRecord(self, 'Account')
+                Mongodb.clearHedgeDownloadAcctRecord(self, 'Account')
+                Mongodb.clearOptionAskBidRecord(self, 'Account', {"$or":[{"secType" : "STK"},{"secType" : "OPT"}]}, {"$set": {"ask" : 0.00, "bid" : 0.00, "positionPrice" : 0.00, "AskBidActive": False}})
+                Mongodb.clearOptionAskBidRecord(self, 'Option', {"secType" : "OPT"}, {"$set": {"request" : False}})
+                Mongodb.clearExpiredContractsAcctRecord(self, 'Account')
+                Mongodb.clearExpiredContractsOptionRecord(self, 'Account','Option')
+                #Mongodb.updateDocumentField(self, 'Account', {}, {"exchange" : ""}, {"exchange" : ""})
+                processQueue.clearProcessQueue(self)
             self.reqAccountSummary(100001, "All", "$LEDGER")
-            self.reqPositionsMulti(100002, localHostAccount, "")
+            self.reqAccountSummary(100002, "All", "BuyingPower")
+            if (ActiveFunction == "pnl"):
+                self.reqPositionsMulti(100005, localHostAccount, "")
         except Exception as e:
             log.info("Initiation of Application Startup Functions " + str(e))
               
         try:
-            loop_option = threading.Thread(target=self.optionLoad_Loop)
-            loop_option.start()
+            if(ActiveFunction == "pnl"):
+                loop_position = threading.Thread(target=self.positionLoad_Loop)
+                loop_position.start()
         except Exception as e:
             log.info("option general load ERROR Captured " + str(e))
 
         try:
-            loop_positionPnLUpdate = threading.Thread(target=self.positionPnLUpdate_Loop)
-            loop_positionPnLUpdate.start()
+            if(ActiveFunction == "pnl"):
+                loop_positionPnLUpdate = threading.Thread(target=self.positionPnLUpdate_Loop)
+                loop_positionPnLUpdate.start()
         except Exception as e:
             log.info("positionPnLUpdate ERROR Capture " + str(e))
+            
+        try:
+            if(ActiveFunction == "pnl"):
+                loop_positionUpdate = threading.Thread(target=self.positionUpdate_Loop)
+                loop_positionUpdate.start()
+        except Exception as e:
+            log.info("positionUpdate ERROR Capture " + str(e))
+            
+        try:
+            if(ActiveFunction == "batch"):
+                loop_optionEval = threading.Thread(target=self.optionEval_Loop)
+                loop_optionEval.start()
+        except Exception as e:
+            log.info("optionEval ERROR Capture " + str(e))
 
         try:
             loop_checkConnection = threading.Thread(target=self.connectStatus_Loop)
             loop_checkConnection.start()
         except Exception as e:
             log.info("connection check ERROR Capture " + str(e))
-        
-    def orderStatusLoad_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
-        while (runActive == True):
-            if (datetime.datetime.now() > nextX):
-                log.info("Order Management Loop")
-                DBOrder.reqOptionOrderCreate(self)
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
-            loop(1)
 
-    def optionLoad_Loop(self):
+    def positionLoad_Loop(self):
         nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
         while (runActive == True):
             if (datetime.datetime.now() > nextX) and (PnLActive == False):
                 log.info("Option Data Loading")
+                #Account Functions
                 Mongodb.reqAskBidAcctRecord(self, None)
                 Mongodb.reqStockPriceAcctRecord(self, None)
-                #Option Functions
-                Mongodb.reqOptionCloseAcctRecord(self, None)
-                DBLogic.logic_evaluateOption_positionSize(self, None)
-                Mongodb.reqHedgeStatusAcctRecord(self, None)
-                DBLogic.logicSelectOptionTargets(self, None)
-                Mongodb.reqContractDownloadAcctRecord_Loop(self, None)
+                #Option Functions moved to Batch
+                #Mongodb.reqOptionCloseAcctRecord(self, None)
+                #DBLogic.logic_evaluateOption_positionSize(self, None)
+                #Mongodb.reqHedgeStatusAcctRecord(self, None)
+                #DBLogic.logicSelectOptionTargets(self, None)
+                #Mongodb.reqContractDownloadAcctRecord_Loop(self, None)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
                         
@@ -418,22 +441,41 @@ class IBApp(EWrapper, EClient):
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
                 log.info("Update PnL Loop")
-                #self.acct_Position()
                 DBApp.reqSubReset(self)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
+    def positionUpdate_Loop(self):
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=1800)
+        while (runActive == True):
+            if (datetime.datetime.now() > nextX):
+                log.info("Update Positions Loop")
+                self.cancelPositionsMulti(100005)
+                loop(2)
+                self.reqPositionsMulti(100005, localHostAccount, "")
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=1800)
+            loop(1)
+            
+    def optionEval_Loop(self):
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+        while (runActive == True):
+            if (datetime.datetime.now() > nextX):
+                log.info("Option Evaluation Loop")
+                DBLogic.logic_selectPositionsEval(self)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+            loop(1)
+            
     def connectStatus_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime * 3)
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
         global runActive
         global PnLActive
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
-                log.info("Connect Check Loop / Adjust Batch Active Value / Confirm PnL Subscriptions")
+                log.info("Connect Check Loop / Adjust PnLActive Value")
                 PnLActive = False
                 if (self.isConnected() == False):
                     runActive = False
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime * 3)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
     
     def reqAcctPnL(self, conId):
@@ -557,20 +599,21 @@ class Mongodb(IBApp):
             
     def reqPnLAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : False, "subPnLRequest" : False, "status" : True,  "conId" : conId}
+        query = {"subPnLRequest" : False, "status" : True,  "conId" : conId}
         for r in activeCol.find(query):
             log.info("Subscribe to PnL for position: " + r.get('symbol'))
             reqId = r.get('realTimeNum')
+            new_reqId = DBLogic.logic_duplicateResolutionThread(self, 'Account', 'realTimeNum', reqId)
             activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : True}})
-            IBApp.getAcctPnL(self, reqId, conId)
+            IBApp.getAcctPnL(self, new_reqId, conId)
             
     def reqPnlsubDisableAcctRecord(self, conId):
         activeCol = self.db['Account']
-        query = {"subPnL" : True, "subPnLRequest" : True, "status" : False, "conId" : conId}
+        query = {"subPnL" : True, "status" : False, "conId" : conId}
         for r in activeCol.find(query):
             log.info("unSubscribe PnL for Position: " + r.get('symbol'))
             reqId = r.get('realTimeNum') 
-            activeCol.update_one({'conId' : conId}, {"$set":{'subPnLRequest' : False}})
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnK' : False,'subPnLRequest' : False}})
             IBApp.sub_stop(self, reqId) 
             
     def reqAskBidAcctRecord(self, reqId):
@@ -590,7 +633,6 @@ class Mongodb(IBApp):
             priceDate_obj = datetime.datetime.strptime(priceDate_str, '%Y%m%d %H%M%S%f')
             if (priceDate_obj < datetime.datetime.now()):
                 log.info("Subscribe to AskBid for position: " + symbol)
-                DBLogic.logic_duplicateResolution(self, 'Account', 'realTimeNum', reqId)
                 processQueue.reqHistoricalDataQueue(self, reqId, symbol, conId, secType, 'Account')
             
     def reqStockPriceAcctRecord(self, reqId):
@@ -776,7 +818,8 @@ class Mongodb(IBApp):
         activeCol = self.db['Account']
         query_Acct_Status = {"$or":[{"status":True, "positionPrice":{"$eq":0}},{"status":True, "subPnL":False}]}
         if(activeCol.count_documents(query_Acct_Status) != 0):
-             DBApp.reqSubReset(self)
+             #DBApp.reqSubReset(self)
+             return
         else:
             if(reqId == None):
                 query = {"status" : True, "secType" : "STK", "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
@@ -827,6 +870,7 @@ class Mongodb(IBApp):
         if (activeCol.count_documents(query) != 0):
             try:
                 loop_reqContractDownloadAcctRecord = threading.Thread(target=Mongodb.reqContractDownloadAcctRecord(self, reqId))
+                loop_reqContractDownloadAcctRecord.daemon = True
                 loop_reqContractDownloadAcctRecord.start()
             except Exception as e:
                 log.info("reqContractDownloadAcctRecord ERROR Captured " + str(e))
@@ -1267,10 +1311,40 @@ class DBLogic(IBApp):
             query_duplicate = {indexField : r.get(indexField)}
             if (activeCol.count_documents(query_duplicate) > 1):
                 log.info("Adjusting Record: " + str(r.get(indexField)))
-                data_duplicate = {indexField : DBLogic.random_RTP(self)}
-                update_duplicate = {"$set": {indexField : data_duplicate[indexField]}}
-                activeCol.update_one(query_duplicate, update_duplicate)
-        log.info ("de-duplication process completed")
+                new_indexField_value = DBLogic.random_RTP(self)
+                data_duplicate = {indexField : new_indexField_value}
+                if (collection == "Account"):
+                    update_duplicate = {"$set": {indexField : data_duplicate[indexField], "subPnL" : False, "subPnLRequest" : False}}
+                    activeCol.update_one(query_duplicate, update_duplicate)
+                    log.info ("de-duplication process completed with Change")
+                    return new_indexField_value
+                if (collection == "Option"):
+                    update_duplicate = {"$set": {indexField : data_duplicate[indexField]}}
+                    activeCol.update_one(query_duplicate, update_duplicate)
+                    log.info ("de-duplication process completed with Change")
+                    return new_indexField_value
+            else:
+                log.info ("de-duplication process completed with No Change")
+                return reqId
+            
+    def logic_selectPositionsEval(self):
+        activeCol = self.db['Account']
+        query_Positions = {'status': True, 'positonPrice':{"$ne":0}}
+        for r in activeCol.find(query_Positions):
+            log.info ("Starting Evaluation of: " + r.get('symbol') + " secType: " + r.get('secType') + " reqId: " + str(r.get('realTimeNum')))
+            try:
+                loop_reqOptionSTKEval = threading.Thread(target=IBApp.reqOptionSTKEval, args=(self, r.get('realTimeNum')))
+                loop_reqOptionSTKEval.daemon = True
+                loop_reqOptionSTKEval.start()
+            except Exception as e:
+                log.info("reqOptionSTKEval ERROR Capture " + str(e))
+                
+            try:
+                loop_reqOptionEval = threading.Thread(target=IBApp.reqOptionEval, args=(self, r.get('realTimeNum')))
+                loop_reqOptionEval.daemon = True
+                loop_reqOptionEval.start()
+            except Exception as e:
+                log.info("reqOptionEval ERROR Capture " + str(e))
 
 
 class CryptoOrder(IBApp):
@@ -1523,10 +1597,26 @@ class processQueue(IBApp):
             return False
         
 
-def main():
+def main(argv):
     global runActive
+    global ConCount
+    global ActiveFunction
+    
+    try:
+        opts, args = getopt.getopt(argv, "c:f:", ["ConCount=", "ActiveFunction="])
+    except getopt.GetoptError:
+        log.info("Missing Option -q value  or --ConCount=value")
+        log.info("Missing Option -f value  or --ActvieFunction=[pnl / batch]")
+    
+    for opt, arg in opts:
+        print(opt, arg)
+        if (opt == '-c'):
+            ConCount = arg
+        if (opt == '-f'):
+            ActiveFunction = arg
+    
     while True:
-        Core_Load()    
+        Core_Load(ConCount)    
         while (runActive == True):
             loop(2)
         else:
@@ -1543,9 +1633,9 @@ def loop(time):
         pass
 
 
-def Core_Load():
+def Core_Load(processCount):
     app = IBApp()
-    app.connect(twsHost, twsPort, connectId)
+    app.connect(twsHost, twsPort, connectId + int(processCount))
     
     try:
         loop_core = threading.Thread(target=app.run)
@@ -1566,6 +1656,6 @@ if __name__ == "__main__":
     log.info('Hedge Application Startup')
     
     try:
-        main()
+        main(sys.argv[1:])
     except Exception as e:
         log.info("main ERROR Captured " + str(e))

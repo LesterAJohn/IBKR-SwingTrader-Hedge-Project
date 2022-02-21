@@ -11,17 +11,17 @@ cd /opt/local/AccountHedge/src
 # module. There will be some manual setup of the Mongodb that will be automated in
 # future releases.
 
-for i in {1..1}
+for i in {3..3}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $i -f order &)
 done
 
-for ii in {2..3}
+for ii in {4..6}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
 done
 
-for iii in {4..6}
+for iii in {7..9}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
 done

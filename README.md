@@ -42,7 +42,7 @@ This system is used for IBKR Trader Workstation, ibcAlpha IBC Components
 ## Linux Application System
 This system is used for the Hedge_Project Option Writer Component
 - Linux version 8
-- 4 Physical or Virtual CPUs
+- 6 Physical or Virtual CPUs
 - 8 GB of Memory
 - SSD 40GB Storage
 - 1 Gb Internet Connection
@@ -208,3 +208,8 @@ Changes:
 - System configuration Scripts for Mongodb Database Server
 
 What started out as a weekend project is now much larger, so I owe a much more detailed deployment and tuning manual for this platform.
+
+#### Option Writer Module - Date 02.20.2022
+- Active Module is now split between Streaming and Batch Functions
+- Active Module Batch functions leverage multi-threading for faster processing
+- Improved use of Database connections

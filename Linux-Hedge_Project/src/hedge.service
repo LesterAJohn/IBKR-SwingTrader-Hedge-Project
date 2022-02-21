@@ -3,7 +3,7 @@ Description = python3 hedge application
 After = network.target
 
 [Service]
-Type=simple
+Type=forking
 
 LimitNOFILE=infinity
 LimitNPROC=infinity
