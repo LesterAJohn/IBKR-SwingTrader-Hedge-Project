@@ -213,3 +213,7 @@ What started out as a weekend project is now much larger, so I owe a much more d
 - Active Module is now split between Streaming and Batch Functions
 - Active Module Batch functions leverage multi-threading for faster processing
 - Improved use of Database connections
+
+#### Option Writer Module - Date 02.22.2022
+- Active Module performance and data update improvements to create a faster system.
+- Database connection issues have been resolved and system now runs stably on a single linux application server with 6 VCPUs

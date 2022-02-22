@@ -938,7 +938,7 @@ class Mongodb(IBApp):
             conId = rr.get('conId')
             secType = rr.get('secType')
             log.info("Subscribe to Targeted AskBid for Option: " + symbol)
-            DBLogic.logic_duplicateResolution(self, 'Option', 'realTimeNum', reqId)
+            DBLogic.logic_duplicateResolutionThread(self, 'Option', 'realTimeNum', reqId)
             processQueue.reqHistoricalDataQueue(self, reqId, symbol, conId, secType, 'Option')
             query1 = {"conId" : conId}
             data1 = {"request" : True}
@@ -990,7 +990,7 @@ class DBApp(IBApp):
         priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
         query = {'realTimeNum' : reqId}
         data = {'unRealizedPnL' : unRealizedPnL, "position" : position, "priceDate" : priceDate_str}
-        update_data = {"unRealizedPnL" : data['unRealizedPnL'], "subPnL" : True, "position" : data['position'], "priceDate" : data['priceDate']}
+        update_data = {"unRealizedPnL" : data['unRealizedPnL'], "subPnL" : True, "subPnLRequest" : True, "position" : data['position'], "priceDate" : data['priceDate']}
         db.updateAcctRecord('Account', query, data, update_data)
 
     def resAskBidAcctRecord(self, reqId, ask, bid):
