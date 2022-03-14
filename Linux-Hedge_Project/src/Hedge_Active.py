@@ -41,6 +41,7 @@ connectId = int(configParser.get('ACCOUNT', 'CONNECTID'))
 cycleTime = int(configParser.get('ACCOUNT', 'CYCLETIME'))
 cycleDisTime = int(configParser.get('ACCOUNT', 'CYCLEDISTIME'))
 threadThrottle = int(configParser.get('ACCOUNT', 'THREADTHROTTLE'))
+reloadPositions = int(configParser.get('ACCOUNT', 'RELOADPOSITIONS'))
 
 targetPnLTrigger = float(configParser.get('OPTION', 'PNLTRIGGER'))
 targetPnLTriggerPer = float(configParser.get('OPTION', 'PNLTRIGGERPER'))
@@ -57,6 +58,8 @@ logsPath = configParser.get('DIRECTORY', 'LOGS')
 mongodbConn = configParser.get('DIRECTORY', 'MONGODBCONN')
 mongoDB = configParser.get('DIRECTORY', 'MONGODB')
 
+activeMode = configParser.get('MODE', 'ACTIVEMODE')
+
 hedgePercentage = (float(hedgePercentage)/100)
 profitTarget = ((100 - int(pt))/100) 
 OID = 0
@@ -72,6 +75,7 @@ reqID_lock_Contracts = []
 reqID_lock_AskBidOption = []
 nextCryptoOrder = datetime.datetime.now()
 PnLActive = False
+targetBuyPower = 1000.00
 
 SecStartTime = int(datetime.time(9,30,0).strftime("%H%M%S"))
 SecEndTime = int(datetime.time(16,0,0).strftime("%H%M%S"))
@@ -112,11 +116,18 @@ class IBApp(EWrapper, EClient):
         print("SecurityDefinitionOptionParameterEnd. ReqId:", reqId)
         
     def position(self, account, contract, position, avgCost):
-        if (abs(position) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO') or (position == 0):
-            log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
-            DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
-            if(pos != 0):
-                self.reqAcctPnL(conId)
+        if (ActiveFunction == 'bpm') or (ActiveFunction == "position"):
+            if (abs(position) < 100 and contract.secType == 'STK'):
+                log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
+                DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
+                if(pos != 0 and ActiveFunction != "position"):
+                    self.reqAcctPnL(conId)
+        elif(ActiveFunction == 'pnl') or (ActiveFunction == "position"):
+            if (abs(position) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO') or (position == 0):
+                log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
+                DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
+                if(pos != 0 and ActiveFunction != "position"):
+                    self.reqAcctPnL(conId)
 
     def positionEnd(self):
         self.cancelPositions()
@@ -181,6 +192,9 @@ class IBApp(EWrapper, EClient):
             log.info("historicalDataEnd ERROR Captured " + str(e))
         
     def historicalDataEndStage(self, reqId: int, start: str, end: str):
+        global activeHisCount
+        if(activeHisCount < 0):
+            activeHisCount = 0
         if(reqId <= 50000):
             pass
         if(reqId > 50000):
@@ -189,19 +203,30 @@ class IBApp(EWrapper, EClient):
 # IBAPI Response Subscription
     def positionMulti(self, reqId: int, account: str, modelCode: str, contract: Contract, pos: int, avgCost: float):
         super().positionMulti(reqId, account, modelCode, contract, pos, avgCost)
-        if (abs(pos) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO'):
-            log.info("PositionMulti. RequestId: " + str(reqId) + " Account: " + account + " ModelCode: " + modelCode + " Symbol: " + contract.symbol + " SecType: " + contract.secType + " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(pos) + " AvgCost: " + str(avgCost))
-            try:
-                loop_positionMultiStage = threading.Thread(target=self.positionMultiStage, args=(account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, pos, avgCost, contract.right, contract.strike, contract.primaryExchange))
-                loop_positionMultiStage.daemon = True
-                loop(1)
-                loop_positionMultiStage.start()
-            except Exception as e:
-                log.info("Position Thread ERROR Captured " + str(e))
+        if (ActiveFunction == 'bpm') or (ActiveFunction == "position"):
+            if (abs(pos) < 100 and contract.secType == 'STK'):
+                log.info("PositionMulti. RequestId: " + str(reqId) + " Account: " + account + " ModelCode: " + modelCode + " Symbol: " + contract.symbol + " SecType: " + contract.secType + " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(pos) + " AvgCost: " + str(avgCost))
+                try:
+                    loop_positionMultiStage = threading.Thread(target=self.positionMultiStage, args=(account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, pos, avgCost, contract.right, contract.strike, contract.primaryExchange))
+                    loop_positionMultiStage.daemon = True
+                    loop(1)
+                    loop_positionMultiStage.start()
+                except Exception as e:
+                    log.info("Position Thread ERROR Captured " + str(e))
+        if(ActiveFunction == 'pnl') or (ActiveFunction == "position"):
+            if (abs(pos) >= 100) or (pos == 0) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO'):
+                log.info("PositionMulti. RequestId: " + str(reqId) + " Account: " + account + " ModelCode: " + modelCode + " Symbol: " + contract.symbol + " SecType: " + contract.secType + " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(pos) + " AvgCost: " + str(avgCost))
+                try:
+                    loop_positionMultiStage = threading.Thread(target=self.positionMultiStage, args=(account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, pos, avgCost, contract.right, contract.strike, contract.primaryExchange))
+                    loop_positionMultiStage.daemon = True
+                    loop(1)
+                    loop_positionMultiStage.start()
+                except Exception as e:
+                    log.info("Position Thread ERROR Captured " + str(e))
             
     def positionMultiStage(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange):
         DBApp.resAddAcctRecord(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange)
-        if(pos != 0):
+        if(pos != 0 and ActiveFunction != "position"):
             self.reqAcctPnL(conId)
 
     def positionMultiEnd(self, reqId: int):
@@ -214,7 +239,7 @@ class IBApp(EWrapper, EClient):
         PnLActive = True
         try:
             if (threadCount < threadThrottle):
-                if (ActiveFunction == "pnl"):
+                if (ActiveFunction == "pnl") or (ActiveFunction == "bpm"):
                     loop_reqPnLStageAcctPnL = threading.Thread(target=self.reqPnLStageAcctPnL, args=(reqId, UnrealizedPnL, pos))
                     loop_reqPnLStageAcctPnL.daemon = True
                     loop_reqPnLStageAcctPnL.start()
@@ -234,14 +259,22 @@ class IBApp(EWrapper, EClient):
         Mongodb.reqStockPriceAcctRecord(self, reqId)
         log.info("Thread Count Account PnL Completed: " + str(TC))
         threadCount = threadCount - 1
+        
+    def reqAskBidEval(self, reqId):
+        global threadCount
+        threadCount = threadCount + 1
+        TC = threadCount
+        log.info("Thread Count Ask/Bid Active: " + str(TC))
+        Mongodb.reqAskBidAcctRecord(self, reqId)
+        Mongodb.reqStockPriceAcctRecord(self, reqId)
+        log.info("Thread Count Ask/Bid Completed: " + str(TC))
+        threadCount = threadCount - 1
     
     def reqOptionSTKEval(self, reqId):
         global threadCount
         threadCount = threadCount + 1
         TC = threadCount
         log.info("Thread Count Option Stock Active: " + str(TC))
-        #Mongodb.reqOptionCloseAcctRecord(self, reqId)
-        #DBLogic.logic_evaluateOption_positionSize(self, reqId)
         Mongodb.reqHedgeStatusAcctRecord(self, reqId)
         DBLogic.logicSelectOptionTargets(self, reqId)
         Mongodb.reqContractDownloadAcctRecord_Loop(self, reqId)
@@ -255,9 +288,6 @@ class IBApp(EWrapper, EClient):
         log.info("Thread Count Option Active: " + str(TC))
         Mongodb.reqOptionCloseAcctRecord(self, reqId)
         DBLogic.logic_evaluateOption_positionSize(self, reqId)
-        #Mongodb.reqHedgeStatusAcctRecord(self, reqId)
-        #DBLogic.logicSelectOptionTargets(self, reqId)
-        #Mongodb.reqContractDownloadAcctRecord_Loop(self, reqId)
         log.info("Thread Count Option Completed: " + str(TC))
         threadCount = threadCount - 1
         
@@ -267,13 +297,16 @@ class IBApp(EWrapper, EClient):
     def accountSummary(self, reqId:int, account:str, tags:str, value:str, currency:str):
         global netLiq
         global targetPnLTrigger
+        global targetBuyPower
         global buyPower
         log.info("Account Calculation: " +  account + " : " + tags + " : " + value)
         if(tags == "NetLiquidationByCurrency"):
             log.info("For NetLiquidity Calculation: " +  account + " : " + tags + " : " + value)
             netLiq = float(value)
             targetPnLTrigger = -(netLiq * (targetPnLTriggerPer/100))
+            targetBuyPower = round((netLiq * 0.01),2)
             log.info("targetPnLTrigger adjusted: " + str(targetPnLTrigger))
+            log.info("targetBuyPower adjusted: " + str(targetBuyPower))
         if(tags == "BuyingPower"):
             log.info("Updated BuyPower Value: " +  account + " : " + tags + " : " + value)
             buyPower = float(value)
@@ -380,7 +413,7 @@ class IBApp(EWrapper, EClient):
                 processQueue.clearProcessQueue(self)
             self.reqAccountSummary(100001, "All", "$LEDGER")
             self.reqAccountSummary(100002, "All", "BuyingPower")
-            if (ActiveFunction == "pnl"):
+            if (ActiveFunction == "pnl") or (ActiveFunction == "bpm") or (ActiveFunction == "position"):
                 self.reqPositionsMulti(100005, localHostAccount, "")
         except Exception as e:
             log.info("Initiation of Application Startup Functions " + str(e))
@@ -393,14 +426,14 @@ class IBApp(EWrapper, EClient):
             log.info("option general load ERROR Captured " + str(e))
 
         try:
-            if(ActiveFunction == "pnl"):
+            if(ActiveFunction == "pnl") or (ActiveFunction == "bpm"):
                 loop_positionPnLUpdate = threading.Thread(target=self.positionPnLUpdate_Loop)
                 loop_positionPnLUpdate.start()
         except Exception as e:
             log.info("positionPnLUpdate ERROR Capture " + str(e))
             
         try:
-            if(ActiveFunction == "pnl"):
+            if(ActiveFunction == "position"):
                 loop_positionUpdate = threading.Thread(target=self.positionUpdate_Loop)
                 loop_positionUpdate.start()
         except Exception as e:
@@ -412,6 +445,13 @@ class IBApp(EWrapper, EClient):
                 loop_optionEval.start()
         except Exception as e:
             log.info("optionEval ERROR Capture " + str(e))
+            
+        try:
+            if(ActiveFunction == "bpm"):
+                loop_bpm = threading.Thread(target=self.bpm_Loop)
+                loop_bpm.start()
+        except Exception as e:
+            log.info("bpm ERROR Capture " + str(e))
 
         try:
             loop_checkConnection = threading.Thread(target=self.connectStatus_Loop)
@@ -420,7 +460,7 @@ class IBApp(EWrapper, EClient):
             log.info("connection check ERROR Capture " + str(e))
 
     def positionLoad_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime + 10)
         while (runActive == True):
             if (datetime.datetime.now() > nextX) and (PnLActive == False):
                 log.info("Option Data Loading")
@@ -446,14 +486,14 @@ class IBApp(EWrapper, EClient):
             loop(1)
             
     def positionUpdate_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=1800)
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=reloadPositions)
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
                 log.info("Update Positions Loop")
                 self.cancelPositionsMulti(100005)
                 loop(2)
                 self.reqPositionsMulti(100005, localHostAccount, "")
-                nextX = datetime.datetime.now() + datetime.timedelta(seconds=1800)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=reloadPositions)
             loop(1)
             
     def optionEval_Loop(self):
@@ -462,6 +502,17 @@ class IBApp(EWrapper, EClient):
             if (datetime.datetime.now() > nextX):
                 log.info("Option Evaluation Loop")
                 DBLogic.logic_selectPositionsEval(self)
+                nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+            loop(1)
+            
+    def bpm_Loop(self):
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+        while (runActive == True):
+            if (datetime.datetime.now() > nextX):
+                log.info("bpm Evaluation Loop")
+                Mongodb.reqBPMClearOpenOrders(self)
+                loop(2)
+                Mongodb.reqBPMCloseAcctRecord(self)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
@@ -613,7 +664,7 @@ class Mongodb(IBApp):
         for r in activeCol.find(query):
             log.info("unSubscribe PnL for Position: " + r.get('symbol'))
             reqId = r.get('realTimeNum') 
-            activeCol.update_one({'conId' : conId}, {"$set":{'subPnK' : False,'subPnLRequest' : False}})
+            activeCol.update_one({'conId' : conId}, {"$set":{'subPnL' : False,'subPnLRequest' : False}})
             IBApp.sub_stop(self, reqId) 
             
     def reqAskBidAcctRecord(self, reqId):
@@ -648,15 +699,94 @@ class Mongodb(IBApp):
             symbol = rr.get('symbol')
             currency = rr.get('currency')
             IBApp.getContractDetails_stockPrice(self, symbol, currency, realTimeNum)
+
+    def reqBPMCloseAcctRecord(self):
+        activeCol = self.db['Account']
+        nowTime = int(datetime.datetime.now().strftime("%H%M%S"))
+        liqTimeStart = 150000
+        liqTimeStop = 160000
         
+        if (buyPower >= targetBuyPower):
+            return
+        else:
+            if (nowTime >= liqTimeStart and nowTime < liqTimeStop):
+                query = {"status":True, "subPnL":True, "secType":"STK", "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice":{"$ne": 0}, "unRealizedPnL":{"$gt":-5.00}}
+            else:
+                query = {"status":True, "subPnL":True, "secType":"STK", "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice":{"$ne": 0}, "unRealizedPnL":{"$gt":5.00}}
+                
+            log.info("Positions Identified for BPM Closure: " + str(activeCol.count_documents(query)))
+            
+            for rec in activeCol.find(query):
+                symbol = rec.get('symbol')
+                secType = rec.get('secType')
+                right = rec.get('right')
+                currency = rec.get('currency')
+                strike = rec.get('strike')
+                limitPosition = rec.get('position')
+                olimitPosition = abs(rec.get('position'))
+                conId = rec.get('conId')
+                
+                if(limitPosition > 0):
+                    direction = 'SELL'
+                    limitPrice = rec.get('ask')
+                if(limitPosition < 0):
+                    direction = 'BUY'
+                    limitPrice = rec.get('bid')
+                
+                aRealTimeNum = rec.get('realTimeNum')
+                avgCost = rec.get('avgCost')
+                ask = rec.get('ask')
+                bid = rec.get('bid')
+                stockPrice = rec.get('stockPrice')
+                positionPrice = rec.get('positionPrice')
+                expDate = rec.get('expDate')
+                limitPrice_mid = DBLogic.logic_midPrice_Calculation(ask, bid)
+                exchange = rec.get('exchange')
+                orderType = 'LMT'
+                algoStrategy = 'Adaptive'
+                startTime = SecStartTime
+                endTime = SecEndTime
+                cashQty = 0.00
+                
+                # Stock Profit BPM Exit
+                log.info("Close Profitable Stock Position for BPM " + symbol)
+                DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, olimitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)            
+    
+    def reqBPMClearOpenOrders(self):
+        activeCol = self.db['Account']
+        activeCol2 = self.db['ProcessQueue']
+        nowTime = int(datetime.datetime.now().strftime("%H%M%S"))
+        liqTimeStart = 150000
+        liqTimeStop = 160000
+        
+        query_openOrder = {'eventType':'Order', 'secType':'STK','OrderStatus':'open'}
+        
+        if (buyPower >= targetBuyPower):
+            activeCol2.delete_many(query_openOrder)
+        
+        for r in activeCol2.find(query_openOrder):
+            conId = r.get('conId')
+
+            if (nowTime >= liqTimeStart and nowTime <= liqTimeStop): 
+                query_acctStatus = {"status":True, "subPnL":True, "secType":"STK", "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice":{"$ne": 0}, "unRealizedPnL":{"$gt":-5.00}, "conId":conId}
+            else:
+                query_acctStatus = {"status":True, "subPnL":True, "secType":"STK", "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice":{"$ne": 0}, "unRealizedPnL":{"$gt":5.00}, "conId":conId}
+            
+            query_order = {'eventType':'Order', 'secType':'STK','OrderStatus':'open', 'conId':conId}
+            if (activeCol.count_documents(query_acctStatus) == 0):
+                activeCol2.delete_many(query_order)
+                
     def reqOptionCloseAcctRecord(self, reqId):
         activeCol = self.db['Account']
-        activeOrder = False
+        activeCol2 = self.db['ProcessQueue']
+        
         if(reqId == None):
             query = {"status" : True, "secType" : "OPT", "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice" : {"$ne": 0}, "stockPrice": {"$ne":0}}
         else:
             query = {"status" : True, "secType" : "OPT", "realTimeNum" : reqId, "ask":{"$gt":0}, "bid":{"$gt":0}, "positonPrice" : {"$ne": 0}, "stockPrice": {"$ne":0}}
+        
         for rec in activeCol.find(query):
+            activeOrder = False
             symbol = rec.get('symbol')
             secType = rec.get('secType')
             right = rec.get('right')
@@ -676,6 +806,7 @@ class Mongodb(IBApp):
             actionDate_7 = expDate - datetime.timedelta(days=7)
             actionDate_14 = expDate - datetime.timedelta(days=14)
             limitPrice_mid = DBLogic.logic_midPrice_Calculation(ask, bid)
+            limitPrice_min = DBLogic.logic_minPrice_Calculation(limitPrice)
             exchange = rec.get('exchange')
             orderType = 'LMT'
             algoStrategy = 'Adaptive'
@@ -705,21 +836,21 @@ class Mongodb(IBApp):
                 if (activeOrder == False):
                     if (((avgCost/100)*0.10) > positionPrice):
                         log.info("Covered Profit Exit - 90% - Multi " + symbol)
-                        DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
+                        DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice_min, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
                 
                 # Profitable Exit for Covered Option Contracts moving against Price within 7 Days of Expiration 
                 if (activeOrder == False) & (datetime.datetime.today() > actionDate_7) & (right == 'C') & (stockPrice > strike):
                     if (((avgCost/100)*.80) > positionPrice):                      
-                        log.info("Covered Profit Exit - 80% - Multi " + symbol)
+                        log.info("Covered Profit Exit - 20% - Multi " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
                 
                 if (activeOrder == False) & (datetime.datetime.today() > actionDate_7) & (right == 'P') & (stockPrice < strike):
                     if (((avgCost/100)*.80) > positionPrice):
-                        log.info("Covered Profit Exit - 80% - Multi " + symbol)
+                        log.info("Covered Profit Exit - 20% - Multi " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
@@ -766,32 +897,52 @@ class Mongodb(IBApp):
                 log.info("Evaluate Naked Options for Closure " + symbol +  " : " + str(positionPrice))
                 # Exit for Naked Options Contracts
                 if (activeOrder == False) & (right == 'C') & (stockPrice > strike):
-                    if (((avgCost/100)*.50) > positionPrice):
+                    if (((avgCost/100)*0.50) > positionPrice):
                         log.info("Uncovered Profit Exit - 50% " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
     
                 if (activeOrder == False) & (right == 'P') & (stockPrice < strike):
-                    if (((avgCost/100)*.50) > positionPrice):
+                    if (((avgCost/100)*0.50) > positionPrice):
                         log.info("Uncovered Profit Exit - 50% " + symbol)
+                        DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
+                        loop(1)
+                        activeOrder = True
+                        
+                if (activeOrder == False) & (datetime.datetime.today() > actionDate_7) & (right == 'C') & (stockPrice > strike):
+                    if (((avgCost/100)*0.75) > positionPrice):
+                        log.info("Uncovered Profitable Exit - 7 Day - Multi " + symbol)
+                        DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
+                        loop(1)
+                        activeOrder = True
+                        
+                if (activeOrder == False) & (datetime.datetime.today() > actionDate_7) & (right == 'P') & (stockPrice < strike):
+                    if (((avgCost/100)*0.75) > positionPrice):
+                        log.info("Uncovered Profitable Exit - 7 Day - Multi " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
     
                 if (activeOrder == False) & (datetime.datetime.today() > expDate) & (right == 'C') & (stockPrice > strike):
-                    if ((avgCost/100) > positionPrice):
-                        log.info("Uncovered Profit Exit - Expiration Day " + symbol)
+                    if (((avgCost/100)*1.00) > positionPrice):
+                        log.info("Uncovered Unprofitable Exit - Expiration Day " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
     
                 if (activeOrder == False) & (datetime.datetime.today() > expDate) & (right == 'P') & (stockPrice < strike):
-                    if ((avgCost/100) > positionPrice):
-                        log.info("Uncovered Profit Exit - Expiration Day " + symbol)
+                    if (((avgCost/100)*1.00) > positionPrice):
+                        log.info("Uncovered Unprofitable Exit - Expiration Day " + symbol)
                         DBOrder.reqOptionOrderDB(self, symbol, secType, right, currency, strike, limitPrice, cashQty, limitPosition, conId, direction, exchange, orderType, algoStrategy, startTime, endTime, aRealTimeNum)
                         loop(1)
                         activeOrder = True
+            
+            #Remove Orders that are no longer valid due to price movement
+            query_OrderCheck = {'eventType': 'Order', 'OrderStatus': 'open', 'conId': conId, 'direction': direction}            
+            if (activeOrder == False and activeCol2.count_documents(query_OrderCheck) != 0):
+                log.info("Removed Order for Position: " + symbol)
+                activeCol2.delete_many(query_OrderCheck)
 
     def reqStandaloneOptions(self, symbol):
         activeCol = self.db['Account']
@@ -816,52 +967,49 @@ class Mongodb(IBApp):
 
     def reqHedgeStatusAcctRecord(self, reqId):
         activeCol = self.db['Account']
-        query_Acct_Status = {"$or":[{"status":True, "positionPrice":{"$eq":0}},{"status":True, "subPnL":False}]}
-        if(activeCol.count_documents(query_Acct_Status) != 0):
-             #DBApp.reqSubReset(self)
-             return
+        
+        if(reqId == None):
+            query = {"status" : True, "secType" : "STK", "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
         else:
-            if(reqId == None):
-                query = {"status" : True, "secType" : "STK", "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
-            else:
-                query = {"status" : True, "secType" : "STK", "realTimeNum" : reqId, "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
+            query = {"status" : True, "secType" : "STK", "realTimeNum" : reqId, "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
 
-            for r in activeCol.find(query):
-                symbol = r.get('symbol')
-                position = r.get('position')
-                optionDownload = r.get('optionDownload')
-                optionDownloadActive = r.get('optionDownloadActive')
-                log.info("Evaluation of Hedge Status " + symbol)
+        for r in activeCol.find(query):
+            symbol = r.get('symbol')
+            position = r.get('position')
+            optionDownload = r.get('optionDownload')
+            optionDownloadActive = r.get('optionDownloadActive')
+            log.info("Evaluation of Hedge Status " + symbol)
+            
+            if(position >= 100):
+                query1 = {"status" : True, "secType" : "OPT", "symbol" : symbol, "right" : "C"}
+            if(position <= -100):
+                query1 = {"status" : True, "secType" : "OPT", "symbol" : symbol, "right" : "P"}
+            
+            count = activeCol.count_documents(query1)
+            
+            if(count == 0):
+                query2 = {"symbol" : symbol, "secType" : "STK", "position" : position}
+                data = {"hedge" : True}
+                update_data = {"$set": {"hedge" : data['hedge']}}
+                activeCol.update_one(query2, update_data)
                 
-                if(position >= 100):
-                    query1 = {"status" : True, "secType" : "OPT", "symbol" : symbol, "right" : "C"}
-                if(position <= -100):
-                    query1 = {"status" : True, "secType" : "OPT", "symbol" : symbol, "right" : "P"}
-                
-                count = activeCol.count_documents(query1)
-                
-                if(count == 0):
-                    query2 = {"symbol" : symbol, "secType" : "STK", "position" : position}
-                    data = {"hedge" : True}
-                    update_data = {"$set": {"hedge" : data['hedge']}}
-                    activeCol.update_one(query2, update_data)
-                    
-                if(count != 0):
-                    query2 = {"symbol" : symbol, "secType" : "STK", "position" : position}
-                    data = {"hedge" : False, "optionDownload" : False, "optionDownloadActive" : False}
-                    update_data = {"$set": {"hedge" : data['hedge'], "optionDownload" : data['optionDownload'], "optionDownloadActive" : data['optionDownloadActive']}}
-                    activeCol.update_one(query2, update_data)
-                            
-            if(reqId == None):
-                query3 = {"status" : True, "secType" : "STK", "hedge" : True, "unRealizedPnL" : {"$gt" : targetPnLTrigger}}
-            else:
-                query3 = {"status" : True, "secType" : "STK", "realTimeNum" : reqId, "hedge" : True, "unRealizedPnL" : {"$gt" : targetPnLTrigger}}
-            data3 = {"hedge" : False, "optionDownload" : False, "optionDownloadActive" : False}
-            update_data3 = {"$set": {"hedge" : data3['hedge'], "optionDownload" : data3['optionDownload'], "optionDownloadActive" : data3['optionDownloadActive']}}
-            activeCol.update_one(query3, update_data3)
+            if(count != 0):
+                query2 = {"symbol" : symbol, "secType" : "STK", "position" : position}
+                data = {"hedge" : False, "optionDownload" : False, "optionDownloadActive" : False}
+                update_data = {"$set": {"hedge" : data['hedge'], "optionDownload" : data['optionDownload'], "optionDownloadActive" : data['optionDownloadActive']}}
+                activeCol.update_one(query2, update_data)
+                        
+        if(reqId == None):
+            query3 = {"status" : True, "secType" : "STK", "hedge" : True, "unRealizedPnL" : {"$gt" : targetPnLTrigger}}
+        else:
+            query3 = {"status" : True, "secType" : "STK", "realTimeNum" : reqId, "hedge" : True, "unRealizedPnL" : {"$gt" : targetPnLTrigger}}
+        data3 = {"hedge" : False, "optionDownload" : False, "optionDownloadActive" : False}
+        update_data3 = {"$set": {"hedge" : data3['hedge'], "optionDownload" : data3['optionDownload'], "optionDownloadActive" : data3['optionDownloadActive']}}
+        activeCol.update_one(query3, update_data3)
     
     def reqContractDownloadAcctRecord_Loop(self, reqId):
         activeCol = self.db['Account']
+        
         if(reqId == None):
             query = {"status" : True, "hedge" : True, "secType" : "STK", "optionDownload" : False, "optionDownloadActive" : False, "unRealizedPnL" : {"$lt" : targetPnLTrigger}}
         else:
@@ -989,34 +1137,52 @@ class DBApp(IBApp):
         priceDate_obj = datetime.datetime.now()
         priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
         query = {'realTimeNum' : reqId}
-        data = {'unRealizedPnL' : unRealizedPnL, "position" : position, "priceDate" : priceDate_str}
+        data = {'unRealizedPnL' : round(unRealizedPnL,15), "position" : position, "priceDate" : priceDate_str}
         update_data = {"unRealizedPnL" : data['unRealizedPnL'], "subPnL" : True, "subPnLRequest" : True, "position" : data['position'], "priceDate" : data['priceDate']}
         db.updateAcctRecord('Account', query, data, update_data)
 
     def resAskBidAcctRecord(self, reqId, ask, bid):
         db = Mongodb()
-        positionPrice = DBLogic.logic_midPrice_Calculation(ask, bid)
+        activeCol = self.db['Account']
         priceDate_obj = datetime.datetime.now()
         priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
-        if(reqId <= 50000):
-            query = { "realTimeNum" : reqId }
-            data = { "ask" :  ask, "bid" : bid, "priceDate" : priceDate_str, "positionPrice" : positionPrice }
-            update_data = { "ask" :  data['ask'], "bid" : data['bid'], "priceDate" : data['priceDate'], "positionPrice" : data['positionPrice'] }
-            db.updateAcctRecord('Account', query, data, update_data)
-        if(reqId > 50000):
-            reqId = reqId - 50000
-            stockPrice = DBLogic.logic_midPrice_Calculation(ask, bid)
-            query = {"realTimeNum" : reqId}
-            data = {"stockPrice" :  stockPrice}
-            update_data = {"stockPrice" : data['stockPrice']}
-            db.updateAcctRecord('Account', query, data, update_data)
+        
+        query_rec = {'status':True, 'realTimeNum':reqId}
+        for rec in activeCol.find(query_rec):
+            position = rec.get('position')
+            secType = rec.get('secType')
+            avgCost = rec.get('avgCost')
+            unRealizedPnL = rec.get('unRealizedPnL')
+        
+            if (ask < 0 and bid < 0 and position < 0 and secType == 'OPT' and unRealizedPnL > 0 ):
+                c_value = (avgCost - unRealizedPnL) / (abs(position) * 100)
+                ask = round(abs(c_value),8)
+                bid = round(abs(c_value),8)
+            
+            positionPrice = DBLogic.logic_midPrice_Calculation(ask, bid)
+            if(reqId <= 50000):
+                query = { "realTimeNum" : reqId }
+                data = { "ask" :  ask, "bid" : bid, "priceDate" : priceDate_str, "positionPrice" : positionPrice }
+                update_data = { "ask" :  data['ask'], "bid" : data['bid'], "priceDate" : data['priceDate'], "positionPrice" : data['positionPrice'] }
+                db.updateAcctRecord('Account', query, data, update_data)
+            if(reqId > 50000):
+                reqId = reqId - 50000
+                stockPrice = DBLogic.logic_midPrice_Calculation(ask, bid)
+                query = {"realTimeNum" : reqId}
+                data = {"stockPrice" :  stockPrice}
+                update_data = {"stockPrice" : data['stockPrice']}
+                db.updateAcctRecord('Account', query, data, update_data)
             
     def reqSubReset(self):
         db = Mongodb()
         activeCol = self.db['Account']
         ActiveSubProcess = False
 
-        query_positionSub = {"subPnL" : False, "subPnLRequest" : False, "position":{"$ne":0}}
+        if(ActiveFunction == "pnl"):
+            query_positionSub = {"subPnL" : False, "subPnLRequest" : False, "$or": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}}]}
+        if(ActiveFunction == "bpm"):
+            query_positionSub = {"subPnL" : False, "subPnLRequest" : False, "$nor": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}},{"position": 0}]}
+
         for r in activeCol.find(query_positionSub):
             ActiveSubProcess = True
             log.info("Add Subscription for PnL Contract: " + str(r.get('conId')))
@@ -1025,7 +1191,8 @@ class DBApp(IBApp):
             activeCol.update_one(query_positionSub1, {"$set": {"status":True}})
             IBApp.reqAcctPnL(self, conId)
             
-        query_positionDeSub = {"subPnL" : True, "subPnLRequest" : True, "position":{"$eq":0}}
+        query_positionDeSub = {"subPnL" : True, "subPnLRequest" : True, "position": 0}    
+
         for r in activeCol.find(query_positionDeSub):
             ActiveSubProcess = True
             log.info("Remove Subscription for PnL Contract: " + str(r.get('conId')))
@@ -1036,8 +1203,13 @@ class DBApp(IBApp):
         
         if (ActiveSubProcess == False):
             loop(15)
-            query_subPnL = {"$or": [{ "status": True, "positionPrice" : { "$eq": 0 }},{"status" : True, "subPnL" : False}]}
-            query_subPnLRequest = {"status" : True, "subPnL" : False,"subPnLRequest" : True}
+            if (ActiveFunction == "pnl"):
+                query_subPnL = {"status": True, "$or": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}}], "$or": [{"positionPrice" : { "$eq": 0 }},{"subPnL" : False}]}
+                query_subPnLRequest = {"status": True, "$or": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}}], "subPnL" : False, "subPnLRequest" : True}
+            if (ActiveFunction == "bpm"):
+                query_subPnL = {"status": True, "$nor": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}}], "$or": [{"positionPrice" : { "$eq": 0 }},{"subPnL" : False}]}
+                query_subPnLRequest = {"status": True, "$nor": [{"secType": "OPT"},{"position":{"$gte": 100}},{"position":{"$lte": -100}}], "subPnL" : False, "subPnLRequest" : True}
+                
             if (activeCol.count_documents(query_subPnL) == activeCol.count_documents(query_subPnLRequest)):
                 activeCol.update_many(query_subPnLRequest,{"$set":{"subPnLRequest" : False}})
 
@@ -1125,7 +1297,7 @@ class DBLogic(IBApp):
         
         query = { "realTimeNum" : RTNum }
         query1 = { "realTimeNum" : RTNum }
-        query2 = { 'eventType':'Option Order', 'OrderNumId' : RTNum }
+        query2 = { 'eventType':'Order', 'OrderNumId' : RTNum }
         
         while (activeCol.count_documents(query) > 0) or (activeCol1.count_documents(query1) > 0) or (activeCol2.count_documents(query2) > 0):
             RTNum = RTNum + 1
@@ -1298,6 +1470,12 @@ class DBLogic(IBApp):
     def logic_midPrice_Calculation(ask, bid):
         return ((ask+bid)/2)
     
+    def logic_minPrice_Calculation(priceValue):
+        if (priceValue < 0.025):
+            return 0.025
+        else:
+            return priceValue
+    
     def logic_duplicateResolution(self, collection, indexField, reqId):
         try:
             loop_duplicate = threading.Thread(target=DBLogic.logic_duplicateResolutionThread(self, collection, indexField, reqId))
@@ -1329,23 +1507,37 @@ class DBLogic(IBApp):
             
     def logic_selectPositionsEval(self):
         activeCol = self.db['Account']
-        query_Positions = {'status': True, 'positonPrice':{"$ne":0}}
-        for r in activeCol.find(query_Positions):
-            log.info ("Starting Evaluation of: " + r.get('symbol') + " secType: " + r.get('secType') + " reqId: " + str(r.get('realTimeNum')))
-            try:
-                loop_reqOptionSTKEval = threading.Thread(target=IBApp.reqOptionSTKEval, args=(self, r.get('realTimeNum')))
-                loop_reqOptionSTKEval.daemon = True
-                loop_reqOptionSTKEval.start()
-            except Exception as e:
-                log.info("reqOptionSTKEval ERROR Capture " + str(e))
-                
-            try:
-                loop_reqOptionEval = threading.Thread(target=IBApp.reqOptionEval, args=(self, r.get('realTimeNum')))
-                loop_reqOptionEval.daemon = True
-                loop_reqOptionEval.start()
-            except Exception as e:
-                log.info("reqOptionEval ERROR Capture " + str(e))
+        query_Positions = {'status': True, 'positionPrice': {"$ne": 0}, "$or": [{'position': {"$lte": -100}, 'secType': "STK"},{'position': {"$gte": 100}, 'secType': "STK"}, {'secType':"OPT"}]}
+        query_Acct_Status = {"$or":[{"status":True, "position":{"$ne":0}, "positionPrice":{"$eq":0}},{"status":True, "subPnL":False, "position":{"$ne":0}}]}
 
+        if(activeCol.count_documents(query_Acct_Status) != 0):
+            log.info("Clearing initial position values")
+            for rr in activeCol.find(query_Positions):
+               try:
+                   loop_reqAskBidEval = threading.Thread(target=IBApp.reqAskBidEval, args=(self, rr.get('realTimeNum')))
+                   loop_reqAskBidEval.daemon = True
+                   loop_reqAskBidEval.start()
+               except Exception as e:
+                   log.info("reqAskBidEval ERROR Capture " + str(e))
+        else:        
+            for r in activeCol.find(query_Positions):
+                log.info ("Starting Evaluation of existing Options: " + r.get('symbol') + " secType: " + r.get('secType') + " reqId: " + str(r.get('realTimeNum')))
+                try:
+                    loop_reqOptionEval = threading.Thread(target=IBApp.reqOptionEval, args=(self, r.get('realTimeNum')))
+                    loop_reqOptionEval.daemon = True
+                    loop_reqOptionEval.start()
+                except Exception as e:
+                    log.info("reqOptionEval ERROR Capture " + str(e))
+                
+                log.info ("Starting Evaluation for new Options: " + r.get('symbol') + " secType: " + r.get('secType') + " reqId: " + str(r.get('realTimeNum')))
+                try:
+                    loop_reqOptionSTKEval = threading.Thread(target=IBApp.reqOptionSTKEval, args=(self, r.get('realTimeNum')))
+                    loop_reqOptionSTKEval.daemon = True
+                    loop_reqOptionSTKEval.start()
+                except Exception as e:
+                    log.info("reqOptionSTKEval ERROR Capture " + str(e))
+                
+                log.info ("Starting Evaluation of Ask/Bid: " + r.get('symbol') + " secType: " + r.get('secType') + " reqId: " + str(r.get('realTimeNum')))
 
 class CryptoOrder(IBApp):
     def reqCryptoOrder(self):
@@ -1391,13 +1583,13 @@ class DBOrder(IBApp):
         OrderNumId = 0000
         
         try:
-            query = {"eventType" : 'Option Order', "conId" : conId, "OrderStatus" : {"$ne": 'Cancelled'}}
-            data = {'eventType' : 'Option Order', 'symbol' : symbol, 'secType' : secType, 'right' : right, 'currency' : currency, 'strike' : strike, 'limitPrice' : limitPrice, 'cashQty' : cashQty, 'limitPosition' : limitPosition, 
+            query = {"eventType" : 'Order', "conId" : conId, "OrderStatus" : {"$ne": 'Cancelled'}}
+            data = {'eventType' : 'Order', 'symbol' : symbol, 'secType' : secType, 'right' : right, 'currency' : currency, 'strike' : strike, 'limitPrice' : limitPrice, 'cashQty' : cashQty, 'limitPosition' : limitPosition, 
                     'conId' : conId, 'direction' : direction, 'exchange' : exchange, 'orderType' : orderType, 'algoStrategy' : algoStrategy, 'startTime' : startTime, 'endTime' : endTime, 
                     'OrderNumId' : OrderNumId, 'OrderStatus' : "open", 'recDate' : rDate_int, 'aRealTimeNum' : aRealTimeNum}
             update_data = {'recDate' : data['recDate']}
             
-            query_OrderStatus = {"eventType" : "Option Order", 'symbol' : symbol, 'direction':direction, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}, {"OrderStatus" : {"$eq" : "Transmitted"}},{"OrderStatus" : {"$eq" : "Filled"}}]}
+            query_OrderStatus = {"eventType" : "Order", 'symbol' : symbol, 'direction':direction, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}, {"OrderStatus" : {"$eq" : "Transmitted"}},{"OrderStatus" : {"$eq" : "Filled"}}]}
             if (activeCol.count_documents(query_OrderStatus) == 0):
                 log.info("Cleared for processing of Order Record for: " + symbol)
                 
@@ -1407,7 +1599,7 @@ class DBOrder(IBApp):
                 else:
                     #activeCol.update_one(query, {"$set": update_data})
                     #log.info("Updated new Order Record for: "  + symbol + " recDate")    
-                    query1 = {'eventType' :  'Option Order', 'conId' : conId, 'OrderStatus' : 'open', 'limitPrice' : {"$ne": limitPrice}}
+                    query1 = {'eventType' :  'Order', 'conId' : conId, 'OrderStatus' : 'open', 'limitPrice' : {"$ne": limitPrice}}
                     update_data1 = {'recDate' : data['recDate'], 'limitPrice' : data['limitPrice']}
                     activeCol.update_one(query1, {"$set": update_data1})
                     log.info("Phase 3 - " + str(limitPrice) + " Updated Order Record for: "  + symbol)
@@ -1472,8 +1664,8 @@ class DBOrder(IBApp):
         TDate_str = datetime.datetime.strftime(TDate_obj, '%s')
         TDate_int = float(TDate_str)
         
-        query = {'eventType':'Option Order', "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}, {"OrderStatus" : {"$eq" : "open"}}]}
-        query1 = {'eventType':'Option Order', "$or" : [{"recDate" : {"$lt" : TDate_int}}, {"OrderStatus" : {"$eq" : "Inactive"}}]}
+        query = {'eventType':'Order', "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}, {"OrderStatus" : {"$eq" : "open"}}]}
+        query1 = {'eventType':'Order', "$or" : [{"recDate" : {"$lt" : TDate_int}}, {"OrderStatus" : {"$eq" : "Inactive"}}]}
         for r in activeCol2.find(query):
             log.info("Phase 6 Order")
             orderId = r.get('OrderNumId')
@@ -1483,7 +1675,7 @@ class DBOrder(IBApp):
         
     def req_optionOrder_cancelCount(self, symbol, multiplier):
         activeCol = self.db['ProcessQueue']
-        query = {'eventType':'Option Order', 'OrderStatus' : 'Cancelled', 'symbol' : symbol}
+        query = {'eventType':'Order', 'OrderStatus' : 'Cancelled', 'symbol' : symbol}
         i = 0
         i = activeCol.count_documents(query)
         return (i * multiplier)
@@ -1497,7 +1689,7 @@ class DBOrder(IBApp):
         
         query = { "realTimeNum" : OrderNumId }
         query1 = { "realTimeNum" : OrderNumId }
-        query2 = { 'eventType':'Option Order', 'OrderNumId' : OrderNumId }
+        query2 = { 'eventType':'Order', 'OrderNumId' : OrderNumId }
         
         while (activeCol.count_documents(query) > 0) or (activeCol1.count_documents(query1) > 0) or (activeCol2.count_documents(query2) > 0):
             OrderNumId = OrderNumId + 1
@@ -1606,7 +1798,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "c:f:", ["ConCount=", "ActiveFunction="])
     except getopt.GetoptError:
         log.info("Missing Option -q value  or --ConCount=value")
-        log.info("Missing Option -f value  or --ActvieFunction=[pnl / batch]")
+        log.info("Missing Option -f value  or --ActvieFunction=[pnl / batch / bpm / position]")
     
     for opt, arg in opts:
         print(opt, arg)
@@ -1623,7 +1815,7 @@ def main(argv):
             log.info("Starting Thread Termination and Reconnection Process")
             loop(60)
             runActive = True
-            loop(30)
+            loop(60)
             log.info("Completing Thread Restart and Reconnection Process")
 
 

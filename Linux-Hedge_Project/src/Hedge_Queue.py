@@ -58,6 +58,8 @@ logsPath = configParser.get('DIRECTORY', 'LOGS')
 mongodbConn = configParser.get('DIRECTORY', 'MONGODBCONN')
 mongoDB = configParser.get('DIRECTORY', 'MONGODB')
 
+activeMode = configParser.get('MODE', 'ACTIVEMODE')
+
 hedgePercentage = (float(hedgePercentage)/100)
 profitTarget = ((100 - int(pt))/100) 
 OID = 0
@@ -69,6 +71,12 @@ activeHisCount = 0
 processQ = []
 QCount = ""
 QFunction = ""
+targetBuyPower = 1000.00
+
+QT0 = False
+QT1 = False
+QT2 = False
+QT3 = False
 
 
 class IBApp(EWrapper, EClient):
@@ -77,10 +85,11 @@ class IBApp(EWrapper, EClient):
         Mongodb.__init__(self)
 
     def error(self, reqId, errorCode, errorString):
+        global activeHisCount
+        global runActive
         if reqId > -1:
             print("Error: ", reqId, " ", errorCode, " ", errorString)
             if(errorCode == 162):
-                global activeHisCount
                 activeHisCount = activeHisCount - 1
                 if(reqId <= 50000):
                     DBApp.resAskBidAcctRecord(self, reqId, -1.00, -1.00)
@@ -88,6 +97,10 @@ class IBApp(EWrapper, EClient):
                 if(reqId > 50000):
                     pass
                 processQueue.reqHistoricalDataRemoveQueue(self, reqId, None)
+            if(errorCode == 322):
+                self.cancelHistoricalData(reqId)
+            if(errorCode == 504):
+                runActive = False
 
     def nextValidId(self, orderId):
         if (orderId == 0):
@@ -173,6 +186,9 @@ class IBApp(EWrapper, EClient):
             log.info("historicalDataEnd ERROR Captured " + str(e))
         
     def historicalDataEndStage(self, reqId: int, start: str, end: str):
+        global activeHisCount
+        if(activeHisCount < 0):
+            activeHisCount = 0
         if(reqId <= 50000):
             pass
         if(reqId > 50000):
@@ -187,17 +203,21 @@ class IBApp(EWrapper, EClient):
         
     def accountSummary(self, reqId:int, account:str, tags:str, value:str, currency:str):
         global netLiq
+        global targetPnLTrigger
+        global targetBuyPower
         global buyPower
         log.info("Account Info: " +  account + " : " + tags + " : " + value)
         if(tags == "NetLiquidationByCurrency"):
             log.info("For NetLiquidity Calculation: " +  account + " : " + tags + " : " + value)
             netLiq = float(value)
             targetPnLTrigger = -(netLiq * (targetPnLTriggerPer/100))
+            targetBuyPower = round((netLiq * 0.01),2)
             log.info("targetPnLTrigger adjusted: " + str(targetPnLTrigger))
+            log.info("targetBuyPower adjusted: " + str(targetBuyPower))
         if(tags == "BuyingPower"):
             log.info("Updated BuyPower Value: " +  account + " : " + tags + " : " + value)
             buyPower = float(value)
-            if (buyPower > 1000):
+            if (buyPower >= targetBuyPower) or (buyPower < targetBuyPower and activeMode == 'BPM'):
                 self.reqOpenOrders()
                 loop(2)
                 DBOrder.reqOptionOrderEval(self)
@@ -335,13 +355,23 @@ class IBApp(EWrapper, EClient):
         #self.reqAllOpenOrders()
         
     def orderCancel(self, orderId):
+        log.info("Cancelled OrderId: " + str(orderId))
         self.cancelOrder(orderId)
 
     def start(self):
         global seqCount
+        global QT0
+        global QT1
+        global QT2
+        global QT3
         seqCount = seqCount + 1
         log.info ("Global Sequence Count: " + str(seqCount) + " Queue Process Number: " + str(QCount) + " Queue Function: " + QFunction)
-
+        
+        QT0 = False
+        QT1 = False
+        QT2 = False
+        QT3 = False
+        
         try:
             if (QFunction == "order"):
                 self.reqAccountSummary(100001, "All", "$LEDGER")
@@ -359,7 +389,7 @@ class IBApp(EWrapper, EClient):
             
         try:
             if (QFunction == "order"):
-                loop_optionCancel = threading.Thread(target=self.optionCancel_Loop)
+                loop_optionCancel = threading.Thread(target=self.orderCancel_Loop)
                 loop_optionCancel.start()
         except Exception as e:
             log.info("option cancel ERROR Capture " + str(e))
@@ -378,7 +408,7 @@ class IBApp(EWrapper, EClient):
             log.info("Historical Request ERROR Capture " + str(e))
     
     def orderStatusLoad_Loop(self):
-        nextX = datetime.datetime.now() + datetime.timedelta(seconds=180)
+        nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
                 log.info("Order Management Loop")
@@ -390,22 +420,24 @@ class IBApp(EWrapper, EClient):
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
             
-    def optionCancel_Loop(self):
+    def orderCancel_Loop(self):
         nextX = datetime.datetime.now()
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
-                log.info("Option Order Cancel Loop")
-                DBOrder.req_optionOrder_activeCancel(self)
+                log.info("Order Cancel Loop")
+                DBOrder.req_Order_activeCancel(self)
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
                    
     def connectStatus_Loop(self):
         nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
+        global activeHisCount
         global runActive
         while (runActive == True):
             if (datetime.datetime.now() > nextX):
-                if (self.isConnected() == False):
+                if (self.isConnected() == False or activeHisCount > 100):
                     runActive = False
+                    self.disconnect()
                 log.info("Checking the status of the API Connection: " + str(runActive))
                 nextX = datetime.datetime.now() + datetime.timedelta(seconds=cycleTime)
             loop(1)
@@ -556,18 +588,55 @@ class DBApp(IBApp):
         priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
         query = {'realTimeNum' : reqId}
         data = {'unRealizedPnL' : unRealizedPnL, "position" : position, "priceDate" : priceDate_str}
-        update_data = {"unRealizedPnL" : data['unRealizedPnL'], "subPnL" : True, "position" : data['position'], "priceDate" : data['priceDate']}
+        update_data = {"unRealizedPnL" : data['unRealizedPnL'], "subPnL" : True, "position" : data['position'], "priceDate" : data['priceDate']}        
         db.updateAcctRecord('Account', query, data, update_data)
 
     def resAskBidAcctRecord(self, reqId, ask, bid):
         db = Mongodb()
-        positionPrice = DBLogic.logic_midPrice_Calculation(ask, bid)
+        activeCol = self.db['Account']
         priceDate_obj = datetime.datetime.now()
         priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
+                
+        query_rec = {'status':True, 'realTimeNum':reqId}
+        for rec in activeCol.find(query_rec):
+            position = rec.get('position')
+            secType = rec.get('secType')
+            avgCost = rec.get('avgCost')
+            unRealizedPnL = rec.get('unRealizedPnL')
+        
+            if (secType == 'OPT'):
+                if (ask < 0 and bid < 0 and position < 0 and unRealizedPnL > 0 ):
+                    c_value = (avgCost - unRealizedPnL) / (abs(position) * 100)
+                    ask = round(abs(c_value),3)
+                    bid = round(abs(c_value),3)
+                    
+                PP = DBLogic.logic_midPrice_Calculation(ask, bid)
+                unRealizedPnL = (avgCost * abs(position)) - ((PP * 100) * abs(position))
+                
+            if (secType == 'STK'):
+                PP = DBLogic.logic_midPrice_Calculation(ask, bid)
+                if (position > 0):
+                    value = (PP - avgCost) * abs(position)
+                    if (value != unRealizedPnL):
+                        unRealizedPnL = value
+                if (position < 0):
+                    value = (avgCost - PP) * abs(position)
+                    if (value != unRealizedPnL):
+                        unRealizedPnL = value
+        
+            positionPrice = PP
+            DBApp.resAskBidAcctRecordCommit(self, reqId, ask, bid, positionPrice, unRealizedPnL)        
+        
+    def resAskBidAcctRecordCommit(self, reqId, ask, bid, positionPrice, unRealizedPnL):
+        db = Mongodb()
+        activeCol = self.db['Account']
+        priceDate_obj = datetime.datetime.now()
+        priceDate_str  = datetime.datetime.strftime(priceDate_obj, '%Y%m%d %H%M%S%f')
+        
         if(reqId <= 50000):
             query = { "realTimeNum" : reqId }
-            data = { "ask" :  ask, "bid" : bid, "priceDate" : priceDate_str, "positionPrice" : positionPrice }
-            update_data = { "ask" :  data['ask'], "bid" : data['bid'], "priceDate" : data['priceDate'], "positionPrice" : data['positionPrice'] }
+            data = { "ask" :  ask, "bid" : bid, "priceDate" : priceDate_str, "positionPrice" : positionPrice, "unRealizedPnL" : unRealizedPnL }
+            update_data = { "ask" :  data['ask'], "bid" : data['bid'], "priceDate" : data['priceDate'], "positionPrice" : data['positionPrice'], "unRealizedPnL" : data['unRealizedPnL'] }
             db.updateAcctRecord('Account', query, data, update_data)
         if(reqId > 50000):
             reqId = reqId - 50000
@@ -656,7 +725,7 @@ class DBLogic(IBApp):
         
         query = { "realTimeNum" : RTNum }
         query1 = { "realTimeNum" : RTNum }
-        query2 = { 'eventType':'Option Order', 'OrderNumId' : RTNum }
+        query2 = { 'eventType':'Order', 'OrderNumId' : RTNum }
         
         while (activeCol.count_documents(query) > 0) or (activeCol1.count_documents(query1) > 0) or (activeCol2.count_documents(query2) > 0):
             RTNum = RTNum + 1
@@ -712,13 +781,32 @@ class DBOrder(IBApp):
         
         log.info("Phase 4 Order DB Started")
         
-        if(buyPower >= 1000.00):
-            query = {'OrderStatus' : 'open', 'startTime':{"$lt": nowTime}, 'endTime':{"$gt": nowTime}}
+        if(buyPower >= targetBuyPower):
+            query = {'OrderStatus' : 'open', 'secType' : 'OPT', 'startTime':{"$lt": nowTime}, 'endTime':{"$gt": nowTime}}
+            secType = 'OPT'
+            log.info ("Order Active")
+        elif(buyPower < targetBuyPower) and (activeMode == 'BPM'):
+            query = {'OrderStatus' : 'open', 'secType' : 'STK', 'startTime':{"$lt": nowTime}, 'endTime':{"$gt": nowTime}}
+            secType = 'STK'
+            log.info ("BPM Order Active")
+        elif(buyPower < targetBuyPower):
+            log.info ("BuyPower less than " + str(targetBuyPower))
+            return
             
-            log.info ("Order records ready to be processed: " + str(activeCol3.count_documents(query)))
-            
+        dcount = activeCol3.count_documents(query)
+        log.info ("Order records ready to be processed: " + str(dcount))
+        
+        if (dcount != 0):
             for r in activeCol3.find(query):
                 log.info("Phase 4 Order DB Submit: " + r.get('symbol') + " ContractId: " + str(r.get('conId')))
+                
+                if (activeCol3.count_documents({'eventType':{"$ne":'Order'}, 'symbol':r.get('symbol'), 'conId':r.get('conId')}) != 0):
+                    log.info ("Ask / Bid Process Request Pending for " + r.get('symbol') + " Waiting")
+                    if (secType == 'STK'):
+                        processQueue.reqHistoricalDataFromQueueThread3(self, historyDelay)
+                    if (secType == 'OPT'):
+                        processQueue.reqHistoricalDataFromQueueThread(self, historyDelay)
+                    return
                 
                 contract = Contract()
                 contract.symbol = r.get('symbol')
@@ -757,9 +845,10 @@ class DBOrder(IBApp):
                 loop(2)
                 IBApp.orderEntry(self, orderId, contract, order)
                 loop(2)
-                break
+                if (r.get('secType') == 'OPT'):
+                    break
             
-    def req_optionOrder_activeCancel(self):
+    def req_Order_activeCancel(self):
         db = Mongodb()
         activeCol2 = self.db['ProcessQueue']
         
@@ -780,8 +869,8 @@ class DBOrder(IBApp):
         OrderTime2_int = float(OrderTime1_str)
         
         queryOrderRetry = {'OrderTime':{"$lt": OrderTime_int}, "OrderStatus" : {"$eq" : "Transmitted"}}
-        query = {'OrderTime':{"$lt": OrderTime1_int}, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}]}
-        query1 = {'OrderTime':{"$lt": OrderTime2_int}, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}}]}      
+        query = {'OrderTime':{"$lt": OrderTime1_int}, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}},{"OrderStatus" : {"$eq" : "PreSubmitted"}},{"OrderStatus" : {"$eq" : "ApiPending"}},{"OrderStatus" : {"$eq" : "PendingSubmit"}}]}
+        query1 = {'OrderTime':{"$lt": OrderTime2_int}, "$or" : [{"OrderStatus" : {"$eq" : "Submitted"}}, {"OrderStatus" : {"$eq" : "PreSubmitted"}},{"OrderStatus" : {"$eq" : "ApiPending"}},{"OrderStatus" : {"$eq" : "PendingSubmit"}}]}      
         query2 = {"$or" : [{"recDate" : {"$lt" : TDate_int}}, {"OrderStatus" : {"$eq" : "Inactive"}}]}
         
         for rr in activeCol2.find(queryOrderRetry):
@@ -789,13 +878,15 @@ class DBOrder(IBApp):
             orderId = rr.get('OrderNumId')
             conId = rr.get('conId')
             IBApp.orderCancel(self, orderId)
-            activeCol3.update_one({'OrderNumId' : orderId, 'conId': conId}, {"$set": {'OrderStatus' : 'open'}})
+            log.info ("Switched order over to open status from transmitted: " + str(orderId) + " for conId: " + str(conId))
+            activeCol2.update_one({'OrderNumId' : orderId, 'conId': conId}, {"$set": {'OrderStatus' : 'open'}})
         
         for r in activeCol2.find(query):
             log.info("Phase 6 Order")
             orderId = r.get('OrderNumId')
             IBApp.orderCancel(self, orderId)
         loop(2)
+        # Removed Stuck Orders
         activeCol2.delete_many(query1)
         activeCol2.delete_many(query2)
 
@@ -820,8 +911,36 @@ class processQueue(IBApp):
             data = {'eventType':'Historical Option', 'reqId':reqId, 'symbol':symbol, 'conId':conId, 'secType':secType, 'recDate': dateTimeNow_int, 'lastDate': dateTimeNow_int, 'sent':False}
         update_data = {'lastDate':data['lastDate']}
         db.addUniqueRecord('ProcessQueue', query, data, update_data)
-        
+    
     def reqHistoricalDataFromQueue(self, delay):
+        if(QFunction  == "option"):
+            try:
+                loop_dataFromQueue = threading.Thread(target=processQueue.reqHistoricalDataFromQueueThread, args=(self, delay))
+                loop_dataFromQueue.start()
+            except Exception as e:
+                log.info("Historical Data from Queue ERROR Captured " + str(e))
+        
+        if(QFunction  == "account"):
+            try:
+                loop_dataFromQueue1 = threading.Thread(target=processQueue.reqHistoricalDataFromQueueThread1, args=(self, delay))
+                loop_dataFromQueue1.start()
+            except Exception as e:
+                log.info("Historical Data from Queue1 ERROR Captured " + str(e))
+            try:
+                loop_dataFromQueue2 = threading.Thread(target=processQueue.reqHistoricalDataFromQueueThread2, args=(self, delay))
+                loop_dataFromQueue2.daemon = True
+                loop_dataFromQueue2.start()
+            except Exception as e:
+                log.info("Historical Data from Queue2 ERROR Captured " + str(e))
+            try:
+                loop_dataFromQueue3 = threading.Thread(target=processQueue.reqHistoricalDataFromQueueThread3, args=(self, delay))
+                loop_dataFromQueue3.daemon = True
+                loop_dataFromQueue3.start()
+            except Exception as e:
+                log.info("Historical Data from Queue2 ERROR Captured " + str(e))
+        
+        
+    def reqHistoricalDataFromQueueThread(self, delay):
         db = Mongodb
         activeCol = self.db['Account']
         activeCol1 = self.db['ProcessQueue']
@@ -830,7 +949,10 @@ class processQueue(IBApp):
         dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
         dateTimeNow_int = float(dateTimeNow_str)
         
-        if(QFunction  == "option"):
+        global QT0
+        
+        if (QT0 == False):
+            QT0 = True
             query_core = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'AskBidActive' : False}
             for sr in activeCol.find(query_core):           
                 query_core1 = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'realTimeNum' : sr.get('realTimeNum')}
@@ -846,24 +968,41 @@ class processQueue(IBApp):
                     update_data_opt1 = {"$set":{'lastDate':data_opt1['lastDate'], 'sent':data_opt1['sent']}}
                     activeCol1.update_one(query_opt1, update_data_opt1)
                     loop(delay)
-                    
+                    if(runActive == False):
+                        break
+            
+                
                 data_core1 = {'AskBidActive' : False}
                 update_data_core1 = {"$set": {'AskBidActive': data_core1['AskBidActive']}}
                 activeCol.update_one(query_core1, update_data_core1)
-
-            # Account Queue Status Reset
-            query_reset = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'AskBidActive' : True}
-            data_reset = {'AskBidActive' : False}
-            update_reset = {"$set": {'AskBidActive':data_reset['AskBidActive']}}
-            activeCol.update_many(query_reset, update_reset)
+    
+                # Hedge Queue Status Reset
+                query_reset = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'AskBidActive' : True}
+                data_reset = {'AskBidActive' : False}
+                update_reset = {"$set": {'AskBidActive':data_reset['AskBidActive']}}
+                activeCol.update_many(query_reset, update_reset)
+                
+                # Option processQueue Reset
+                query_reset1 = {'eventType':'Historical Option', 'sent' : True}
+                data_reset1 = {'sent' : False}
+                update_reset1 = {"$set": {'sent':data_reset1['sent']}}
+                activeCol1.update_many(query_reset1, update_reset1)
             
-            # Option processQueue Reset
-            query_reset1 = {'eventType':'Historical Option', 'sent' : True}
-            data_reset1 = {'sent' : False}
-            update_reset1 = {"$set": {'sent':data_reset1['sent']}}
-            activeCol1.update_many(query_reset1, update_reset1)
+            QT0 = False
 
-        if(QFunction  == "account"):
+    def reqHistoricalDataFromQueueThread1(self, delay):
+        db = Mongodb
+        activeCol = self.db['Account']
+        activeCol1 = self.db['ProcessQueue']
+
+        dateTimeNow_obj = datetime.datetime.now()
+        dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
+        dateTimeNow_int = float(dateTimeNow_str)
+        
+        global QT1
+        
+        if (QT1 == False):
+            QT1 = True
             query_acct = {'eventType' : "Historical Account", 'sent' : False}
             for r in activeCol1.find(query_acct).sort('recDate', 1):
                 IBApp.getAskBid(self, r.get('reqId'), r.get('symbol'), r.get('conId'), r.get('secType'))
@@ -872,12 +1011,76 @@ class processQueue(IBApp):
                 update_data_acct1 = {"$set":{'lastDate':data_acct1['lastDate'], 'sent':data_acct1['sent']}}
                 activeCol1.update_one(query_acct1, update_data_acct1)
                 loop(delay)
-                
-            # Option processQueue Reset
+                if(runActive == False):
+                        break
+            
+            # Hedge Queue Status Reset
+            query_reset = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'AskBidActive' : True}
+            data_reset = {'AskBidActive' : False}
+            update_reset = {"$set": {'AskBidActive':data_reset['AskBidActive']}}
+            activeCol.update_many(query_reset, update_reset)
+            
+            #Account processQueue Reset
             query_reset1 = {'eventType':'Historical Account', 'sent' : True}
             data_reset1 = {'sent' : False}
             update_reset1 = {"$set": {'sent':data_reset1['sent']}}
             activeCol1.update_many(query_reset1, update_reset1)
+            
+            QT1 = False
+    
+    def reqHistoricalDataFromQueueThread2(self, delay):
+        db = Mongodb
+        activeCol = self.db['Account']
+        activeCol1 = self.db['ProcessQueue']
+
+        dateTimeNow_obj = datetime.datetime.now()
+        dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
+        dateTimeNow_int = float(dateTimeNow_str)
+        
+        global QT2
+        
+        if (QT2 == False):
+            QT2 = True
+            query_immediate = {'status': True, 'sent' : False, 'positionPrice': {"$eq": 0 }}
+            for i in activeCol.find(query_immediate).sort('recDate', 1):
+                query_acct_immediate = {'eventType' : "Historical Account", 'sent' : False, 'reqId': i.get('realTimeNum')}
+                for r in activeCol1.find(query_acct_immediate).sort('recDate', 1):
+                    IBApp.getAskBid(self, r.get('reqId'), r.get('symbol'), r.get('conId'), r.get('secType'))
+                    query_acct1 = {"reqId" : r.get('reqId')}
+                    data_acct1 = {'lastDate' : dateTimeNow_int, 'sent': True}
+                    update_data_acct1 = {"$set":{'lastDate':data_acct1['lastDate'], 'sent':data_acct1['sent']}}
+                    activeCol1.update_one(query_acct1, update_data_acct1)
+                    loop(delay)
+                    if(runActive == False):
+                        break
+            QT2 = False
+                    
+    def reqHistoricalDataFromQueueThread3(self, delay):
+        db = Mongodb
+        activeCol = self.db['Account']
+        activeCol1 = self.db['ProcessQueue']
+
+        dateTimeNow_obj = datetime.datetime.now()
+        dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
+        dateTimeNow_int = float(dateTimeNow_str)
+        
+        global QT3
+        
+        if (QT3 == False):
+            QT3 = True
+            query_immediate = {'status': True, 'sent' : False, 'unRealizedPnL': {"$gt": -5.00 }}
+            for i in activeCol.find(query_immediate).sort('unRealizedPnL', -1):
+                query_acct_immediate = {'eventType' : "Historical Account", 'sent' : False, 'reqId': i.get('realTimeNum')}
+                for r in activeCol1.find(query_acct_immediate).sort('recDate', 1):
+                    IBApp.getAskBid(self, r.get('reqId'), r.get('symbol'), r.get('conId'), r.get('secType'))
+                    query_acct1 = {"reqId" : r.get('reqId')}
+                    data_acct1 = {'lastDate' : dateTimeNow_int, 'sent': True}
+                    update_data_acct1 = {"$set":{'lastDate':data_acct1['lastDate'], 'sent':data_acct1['sent']}}
+                    activeCol1.update_one(query_acct1, update_data_acct1)
+                    loop(delay)
+                    if(runActive == False):
+                        break
+            QT3 = False
             
     def reqHistoricalDataResetQueue(self):
         db = Mongodb
@@ -906,6 +1109,7 @@ def main(argv):
     global runActive
     global QCount
     global QFunction
+    global activeHisCount
     
     try:
         opts, args = getopt.getopt(argv, "q:f:", ["queueCount=", "queueFunction="])
@@ -930,8 +1134,9 @@ def main(argv):
             loop(2)
         else:
             log.info("Starting Thread Termination and Reconnection Process")
-            loop(60)
+            loop(cycleTime * 1.5)
             runActive = True
+            activeHisCount = 0 
             loop(30)
             log.info("Completing Thread Restart and Reconnection Process")
 

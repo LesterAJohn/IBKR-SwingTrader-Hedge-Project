@@ -8,10 +8,12 @@ Type=forking
 LimitNOFILE=infinity
 LimitNPROC=infinity
 LimitSTACK=infinity
+TasksMax=infinity
 
 ExecStartPre=/bin/sleep 10
 
-ExecStart = /bin/bash /opt/local/AccountHedge/src/Startup_Q.sh
+ExecStart = /bin/bash /opt/local/AccountHedge/src/Startup_Q.sh all
+
 ExecStop = /bin/bash /opt/local/AccountHedge/src/Stop_Q.sh 
 
 Restart=always

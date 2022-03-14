@@ -18,7 +18,7 @@ This is a multi-system deployment that requires separate Windows and Linux syste
 ## Windows Pro 10/11 Application System
 This system is primarily used for NinjaTrader 8 deployment
 - Windows Pro 10 or 11
-- 8 Physical or Virtual CPUs
+- 32 Physical or Virtual CPUs
 - 32 GB of Memory
 - SSD 100GB Storage
 - 1 Gb Internet Connection
@@ -42,7 +42,7 @@ This system is used for IBKR Trader Workstation, ibcAlpha IBC Components
 ## Linux Application System
 This system is used for the Hedge_Project Option Writer Component
 - Linux version 8
-- 6 Physical or Virtual CPUs
+- 8 Physical or Virtual CPUs
 - 8 GB of Memory
 - SSD 40GB Storage
 - 1 Gb Internet Connection
@@ -217,3 +217,12 @@ What started out as a weekend project is now much larger, so I owe a much more d
 #### Option Writer Module - Date 02.22.2022
 - Active Module performance and data update improvements to create a faster system.
 - Database connection issues have been resolved and system now runs stably on a single linux application server with 6 VCPUs
+
+#### Option Writer Module - Date 02.23.2022
+- Added variable "RELOADPOSITIONS" to configuration file in order to allow for customization of this timing
+
+#### Option Writer Module - Date 03.14.2022
+- Added Buy Power Management recovery functions. This feature currently has a variable limit at 1% floor that if breached the system will start looking for position to close.
+- Separated Position Updates into it own process.
+- Increased threading in Historical Queue functions. In order to support the additional position associated with BPM, performance in historical data had to be increased and therefore the move to threads for the historical queue management.
+- Modified startup scripts to allows additional separation of function across additional Linux Application Servers
