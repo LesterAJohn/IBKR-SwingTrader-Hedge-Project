@@ -802,11 +802,10 @@ class DBOrder(IBApp):
                 
                 if (activeCol3.count_documents({'eventType':{"$ne":'Order'}, 'symbol':r.get('symbol'), 'conId':r.get('conId')}) != 0):
                     log.info ("Ask / Bid Process Request Pending for " + r.get('symbol') + " Waiting")
-                    if (secType == 'STK'):
-                        processQueue.reqHistoricalDataFromQueueThread3(self, historyDelay)
-                    if (secType == 'OPT'):
-                        processQueue.reqHistoricalDataFromQueueThread(self, historyDelay)
-                    return
+                    if (secType == 'STK') or (secType == 'OPT' and r.get('direction') == 'BUY'):
+                        processQueue.reqHistoricalDataFromQueueTarget(self, historyDelay, r.get('conId'))
+                    if (secType == 'OPT' and r.get('direction') == 'SELL'):
+                        processQueue.reqHistoricalDataFromQueueTargetOption(self, historyDelay, r.get('symbol'))
                 
                 contract = Contract()
                 contract.symbol = r.get('symbol')
@@ -989,6 +988,33 @@ class processQueue(IBApp):
                 activeCol1.update_many(query_reset1, update_reset1)
             
             QT0 = False
+            
+    def reqHistoricalDataFromQueueTargetOption(self, delay, symbol):
+        db = Mongodb
+        activeCol = self.db['Account']
+        activeCol1 = self.db['ProcessQueue']
+
+        dateTimeNow_obj = datetime.datetime.now()
+        dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
+        dateTimeNow_int = float(dateTimeNow_str)
+        
+        query_core = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'AskBidActive' : False, 'symbol': symbol}
+        for sr in activeCol.find(query_core):           
+            query_core1 = {'status' : True, 'secType' : 'STK', 'hedge' :  True, 'optionDownload' : True, 'realTimeNum' : sr.get('realTimeNum')}
+            data_core1 = {'AskBidActive' : True}
+            update_data_core1 = {"$set": {'AskBidActive': data_core1['AskBidActive']}}
+            activeCol.update_one(query_core1, update_data_core1)
+            
+            query_opt = {'eventType': "Historical Option", 'symbol': sr.get('symbol'), 'sent': False}
+            for r in activeCol1.find(query_opt).sort('recDate', 1):
+                IBApp.getAskBid(self, r.get('reqId'), r.get('symbol'), r.get('conId'), r.get('secType'))
+                query_opt1 = {"reqId" : r.get('reqId')}
+                data_opt1 = {'lastDate' : dateTimeNow_int, 'sent': True}
+                update_data_opt1 = {"$set":{'lastDate':data_opt1['lastDate'], 'sent':data_opt1['sent']}}
+                activeCol1.update_one(query_opt1, update_data_opt1)
+                loop(delay)
+                if(runActive == False):
+                    break
 
     def reqHistoricalDataFromQueueThread1(self, delay):
         db = Mongodb
@@ -1081,7 +1107,29 @@ class processQueue(IBApp):
                     if(runActive == False):
                         break
             QT3 = False
-            
+
+    def reqHistoricalDataFromQueueTarget(self, delay, conId):
+        db = Mongodb
+        activeCol = self.db['Account']
+        activeCol1 = self.db['ProcessQueue']
+
+        dateTimeNow_obj = datetime.datetime.now()
+        dateTimeNow_str = datetime.datetime.strftime(dateTimeNow_obj, '%s')
+        dateTimeNow_int = float(dateTimeNow_str)
+        
+        query_immediate = {'status': True, 'sent' : False, 'conId': conId,'unRealizedPnL': {"$gt": -5.00 }}
+        for i in activeCol.find(query_immediate).sort('unRealizedPnL', -1):
+            query_acct_immediate = {'eventType' : "Historical Account", 'sent' : False, 'reqId': i.get('realTimeNum')}
+            for r in activeCol1.find(query_acct_immediate).sort('recDate', 1):
+                IBApp.getAskBid(self, r.get('reqId'), r.get('symbol'), r.get('conId'), r.get('secType'))
+                query_acct1 = {"reqId" : r.get('reqId')}
+                data_acct1 = {'lastDate' : dateTimeNow_int, 'sent': True}
+                update_data_acct1 = {"$set":{'lastDate':data_acct1['lastDate'], 'sent':data_acct1['sent']}}
+                activeCol1.update_one(query_acct1, update_data_acct1)
+                loop(delay)
+                if(runActive == False):
+                    break
+
     def reqHistoricalDataResetQueue(self):
         db = Mongodb
         activeCol = self.db['ProcessQueue']

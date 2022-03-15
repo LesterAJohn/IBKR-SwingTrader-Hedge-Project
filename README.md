@@ -226,3 +226,6 @@ What started out as a weekend project is now much larger, so I owe a much more d
 - Separated Position Updates into it own process.
 - Increased threading in Historical Queue functions. In order to support the additional position associated with BPM, performance in historical data had to be increased and therefore the move to threads for the historical queue management.
 - Modified startup scripts to allows additional separation of function across additional Linux Application Servers
+
+#### Option Writer Module - Date 03.15.2022
+- Completed ProcessQueue items prior to issuing orders
