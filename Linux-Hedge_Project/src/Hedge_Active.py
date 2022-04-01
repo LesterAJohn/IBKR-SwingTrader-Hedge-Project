@@ -126,14 +126,16 @@ class IBApp(EWrapper, EClient):
             if (abs(position) < 100 and contract.secType == 'STK'):
                 log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
                 DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
-                if(pos != 0 and ActiveFunction != "position"):
-                    self.reqAcctPnL(conId)
+                if(ActiveFunction != "position"):
+                    if (pos != 0):
+                        self.reqAcctPnL(conId)
         elif(ActiveFunction == 'pnl') or (ActiveFunction == "position"):
             if (abs(position) >= 100) or (contract.secType == 'OPT') or (contract.secType == 'CRYPTO') or (position == 0):
                 log.info("Position." + "Account: " + account + " Symbol: " + contract.symbol + " ConId " + str(contract.conId) + " SecType: " + contract.secType +  " Currency: " + contract.currency + " Exchange " + contract.primaryExchange + " Position: " + str(position) + " Avg cost: " + str(avgCost) + " Right: " + contract.right + " Strike: " + str(contract.strike))
                 DBApp.resAddAcctRecord(self, account, contract.symbol, contract.conId, contract.secType, contract.currency, contract.lastTradeDateOrContractMonth, position, avgCost, contract.right, contract.strike, contract.primaryExchange)
-                if(pos != 0 and ActiveFunction != "position"):
-                    self.reqAcctPnL(conId)
+                if(ActiveFunction != "position"):
+                    if (pos != 0):
+                        self.reqAcctPnL(conId)
 
     def positionEnd(self):
         self.cancelPositions()
@@ -239,8 +241,9 @@ class IBApp(EWrapper, EClient):
 
     def positionMultiStage(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange):
         DBApp.resAddAcctRecord(self, account, symbol, conId, secType, currency, lastTradeDateOrContractMonth, pos, avgCost, right, strike, exchange)
-        if(pos != 0 and ActiveFunction != "position"):
-            self.reqAcctPnL(conId)
+        if(ActiveFunction != "position"):
+            if (pos != 0):
+                self.reqAcctPnL(conId)
 
     def positionMultiEnd(self, reqId: int):
         super().positionMultiEnd(reqId)
@@ -1305,7 +1308,7 @@ class DBApp(IBApp):
             activeCol.update_one(query_positionSub1, {"$set": {"status":True}})
             IBApp.reqAcctPnL(self, conId)
             
-        query_positionDeSub = {"subPnL" : True, "subPnLRequest" : True, "position": 0}    
+        query_positionDeSub = {"$or":[{"subPnL" : True},{"subPnLRequest" : True}], "position": 0}    
 
         for r in activeCol.find(query_positionDeSub):
             ActiveSubProcess = True
