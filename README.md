@@ -229,3 +229,16 @@ What started out as a weekend project is now much larger, so I owe a much more d
 
 #### Option Writer Module - Date 03.15.2022
 - Completed ProcessQueue items prior to issuing orders
+
+#### Option Writer Module - Date 03.31.2022
+Added the following separations to improve performance:
+- position - batch download of account positions
+- pnl - subscription to account position for possible hedge
+- bpm - subscription to account position for possible buy power management transactions
+- batch - computation functions for decisions on hedge and option and buy power management transactions
+- contract - option chain download function
+- order - order execution
+- account - ask / bid request for account positions
+- option - ask / bid request for selected option chains
+
+These functions can be run on a single server with at least 1 vCPU per process or several server following the same requirement. The included startup (Startup.sh, Startup_Q.sh, Startup_B.sh) file provide the recommended seperations, but others can be used.

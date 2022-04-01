@@ -21,7 +21,7 @@ fi
 
 if [ $1 = "account" ]
 then
-for ii in {6..8}
+for ii in {6..7}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
 done
@@ -29,7 +29,7 @@ fi
 
 if [ $1 = "option" ]
 then
-for iii in {9..10}
+for iii in {8..9}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
 done
@@ -41,11 +41,11 @@ for i in {5..5}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $i -f order &)
 done
-for ii in {6..6}
+for ii in {6..7}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
 done
-for iii in {7..8}
+for iii in {8..9}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
 done

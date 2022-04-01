@@ -12,8 +12,8 @@ TasksMax=infinity
 
 ExecStartPre=/bin/sleep 10
 
-ExecStart = /bin/bash /opt/local/AccountHedge/src/Startup_Q.sh all
-ExecStop = /bin/bash /opt/local/AccountHedge/src/Stop_Q.sh 
+ExecStart = /bin/bash /opt/local/AccountHedge/src/Startup_B.sh all
+ExecStop = /bin/bash /opt/local/AccountHedge/src/Stop_B.sh 
 
 Restart=always
 RestartSec=5

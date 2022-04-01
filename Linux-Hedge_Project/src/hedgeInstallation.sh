@@ -14,6 +14,7 @@ sudo cp -p /opt/local/env/Env.conf /opt/local/env/Env.bkup
 sudo cp -p Env.conf /opt/local/env/.
 sudo cp -p hedge.service /usr/lib/systemd/system/.
 sudo cp -p hedgeq.service /usr/lib/systemd/system/.
+sudo cp -p hedgeb.service /usr/lib/systemd/system/.
 
 # Basic Installation - deploy Service
 
@@ -21,8 +22,8 @@ sudo systemctl daemon-reload
 
 # Basic - update to crontab for EST timezone
 
-(crontab -l | echo "30 08 * * 1-5 /usr/bin/systemctl start hedge.service && /usr/bin/systemctl start hedgeq.service") | awk '!x[$0]++' | crontab -
-(crontab -l | echo "15 16 * * 1-5 /usr/bin/systemctl stop hedge.service && /usr/bin/systemctl stop hedgeq.service") | awk '!x[$0]++' | crontab -
+(crontab -l | echo "30 08 * * 1-5 /usr/bin/systemctl start hedge.service && /usr/bin/systemctl start hedgeq.service && /usr/bin/systemctl start hedgeb.service") | awk '!x[$0]++' | crontab -
+(crontab -l | echo "15 16 * * 1-5 /usr/bin/systemctl stop hedge.service && /usr/bin/systemctl stop hedgeq.service && /usr/bin/systemctl stop hedgeb.service") | awk '!x[$0]++' | crontab -
 
 # python / pip installation
 

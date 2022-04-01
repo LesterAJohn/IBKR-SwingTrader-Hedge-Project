@@ -19,7 +19,6 @@ Restart=always
 RestartSec=5
 TimeoutSec=60
 RuntimeMaxSec=infinity
-PIDFile=/tmp/Hedge_Project.pid
 
 KillMode = control-group
 

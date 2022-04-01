@@ -53,10 +53,10 @@ for ii in {2..2}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $ii -f pnl &)
 done
-for iii in {3..3}
-do
-	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $iii -f batch &)
-done
+#for iii in {3..3}
+#do
+#	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $iii -f batch &)
+#done
 for iiii in {4..4}
 do
 	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $iiii -f bpm &)
