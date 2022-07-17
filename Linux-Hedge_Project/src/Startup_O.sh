@@ -13,8 +13,8 @@ cd /opt/local/AccountHedge/src
 
 if [ $1 = "all" ]
 then
-for i in {5..5}
+for i in {7..7}
 do
-	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $i -f batch &)
+	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $i -f order &)
 done
 fi

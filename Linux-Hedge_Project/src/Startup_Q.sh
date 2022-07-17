@@ -3,7 +3,7 @@
 # Startup file to support ibkhedge0 startup
 
 cd /opt/local/AccountHedge/src
-
+#git pull origin master
 
 # Uncomment the appropriate execution script based on your configuration.
 # If you do not deploy Mongodb you can use the pydblite file based database
@@ -11,42 +11,17 @@ cd /opt/local/AccountHedge/src
 # module. There will be some manual setup of the Mongodb that will be automated in
 # future releases.
 
-if [ $1 = "order" ]
-then
-for i in {5..5}
-do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $i -f order &)
-done
-fi
-
-if [ $1 = "account" ]
-then
-for ii in {6..7}
-do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
-done
-fi
-
-if [ $1 = "option" ]
-then
-for iii in {8..9}
-do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
-done
-fi
-
 if [ $1 = "all" ]
 then
-for i in {5..5}
+for ii in {8..9}
 do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $i -f order &)
+	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $ii -f accountHis &)
+	sleep 10
 done
-for ii in {6..7}
+
+for iii in {10..12}
 do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $ii -f account &)
-done
-for iii in {8..9}
-do
-	(python3 /opt/local/AccountHedge/src/Hedge_Queue.py -q $iii -f option &)
+	(python3 /opt/local/AccountHedge/src/Hedge_Active.py -c $iii -f optionHis &)
+	sleep 10
 done
 fi

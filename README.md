@@ -241,4 +241,5 @@ Added the following separations to improve performance:
 - account - ask / bid request for account positions
 - option - ask / bid request for selected option chains
 
-These functions can be run on a single server with at least 1 vCPU per process or several server following the same requirement. The included startup (Startup.sh, Startup_Q.sh, Startup_B.sh) file provide the recommended seperations, but others can be used.
+#### Option Writer Module - Date 07.16.2022
+Enhances functionality with intro of TimeSeries Database

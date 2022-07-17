@@ -15,6 +15,8 @@ sudo cp -p Env.conf /opt/local/env/.
 sudo cp -p hedge.service /usr/lib/systemd/system/.
 sudo cp -p hedgeq.service /usr/lib/systemd/system/.
 sudo cp -p hedgeb.service /usr/lib/systemd/system/.
+sudo cp -p hedgec.service /usr/lib/systemd/system/.
+sudo cp -p hedgeo.service /usr/lib/systemd/system/.
 
 # Basic Installation - deploy Service
 

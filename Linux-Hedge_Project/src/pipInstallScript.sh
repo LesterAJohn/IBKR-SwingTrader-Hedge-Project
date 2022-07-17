@@ -97,3 +97,6 @@ pip3 install zope.interface
 pip3 install py-spy
 pip3 install nuitka
 pip3 install pymongo
+pip3 install asyncio
+pip3 install motor
+pip3 install influxdb-client
